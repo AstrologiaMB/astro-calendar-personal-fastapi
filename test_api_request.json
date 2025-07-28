@@ -1,0 +1,12 @@
+{
+  "name": "Usuario",
+  "birth_date": "1964-12-26",
+  "birth_time": "21:12",
+  "location": {
+    "latitude": -34.6083696,
+    "longitude": -58.4440583,
+    "name": "Buenos Aires, Argentina",
+    "timezone": "America/Argentina/Buenos_Aires"
+  },
+  "year": 2025
+}

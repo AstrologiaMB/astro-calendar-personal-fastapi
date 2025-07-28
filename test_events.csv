@@ -1,0 +1,4 @@
+fecha_utc,hora_utc,fecha_local,hora_local,tipo_evento,descripcion,elevacion,azimut,planeta1,planeta2,posicion1,posicion2,tipo_aspecto,orbe,es_aplicativo,harmony,estado,movimiento,signo,grado,posicion
+2025-02-25,01:20,2025-02-24,22:20,Aspecto,Mercurio Cuadratura Sol Natal,,,Mercurio,Sol,5°30' Cáncer,5°30' Capricornio,Cuadratura,0.00°,Sí,,Exacto,Directo,,,
+2025-02-25,01:20,2025-02-24,22:20,Aspecto,Venus Conjunción Luna Natal,,,Venus,Luna,19°30' Libra,19°30' Libra,Conjunción,0.00°,No,,Separativo,Retrógrado,,,
+2025-02-25,01:20,2025-02-24,22:20,Luna Nueva,Luna Nueva en Cáncer,,,,,,,,,,,,,Cáncer,15.50°,15°30' Cáncer

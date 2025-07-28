@@ -1,0 +1,655 @@
+"""
+Módulo para calcular conjunciones entre la Luna progresada y planetas natales.
+Utiliza procesamiento paralelo para mejorar el rendimiento.
+"""
+import json
+import time
+import concurrent.futures
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+from src.core import config
+from src.core.base_event import AstroEvent
+from src.core.constants import EventType
+import immanuel.charts as charts
+from immanuel.const import chart, calc
+from immanuel.setup import settings
+from immanuel.reports import aspect
+from immanuel.tools import ephemeris
+
+# Configuración de immanuel para aspectos
+settings.aspects = [calc.CONJUNCTION]  # Solo conjunciones
+settings.default_orb = 2.0  # Orbe de 2° para Luna progresada (aumentado para capturar más conjunciones)
+settings.exact_orb = 0.001  # Aspecto exacto dentro de 0.001°
+
+# Mapeo de IDs a nombres de planetas
+PLANET_NAMES = {
+    chart.SUN: "Sol",
+    chart.MOON: "Luna",
+    chart.MERCURY: "Mercurio",
+    chart.VENUS: "Venus",
+    chart.MARS: "Marte",
+    chart.JUPITER: "Júpiter",
+    chart.SATURN: "Saturno",
+    chart.URANUS: "Urano",
+    chart.NEPTUNE: "Neptuno",
+    chart.PLUTO: "Plutón"
+}
+
+# Lista de planetas a procesar
+PLANETS_TO_CHECK = [
+    chart.SUN,
+    chart.MERCURY,
+    chart.VENUS,
+    chart.MARS,
+    chart.JUPITER,
+    chart.SATURN,
+    chart.URANUS,
+    chart.NEPTUNE,
+    chart.PLUTO
+]
+
+# Mapeo de aspectos
+ASPECT_NAMES = {
+    calc.CONJUNCTION: "Conjunción"
+}
+
+# Mapeo de estado del aspecto
+ASPECT_STATE = {
+    calc.APPLICATIVE: "Aplicativo",
+    calc.EXACT: "Exacto",
+    calc.SEPARATIVE: "Separativo"
+}
+
+class ProgressedMoonTransitsCalculator:
+    def __init__(self, natal_data: dict):
+        """
+        Inicializa el calculador de conjunciones de Luna progresada.
+        
+        Args:
+            natal_data: Diccionario con los datos natales del usuario
+        """
+        self.natal_data = natal_data
+        
+        # Obtener la zona horaria del usuario desde los datos natales
+        self.user_timezone = ZoneInfo("UTC")  # Default a UTC
+        if 'location' in natal_data and 'timezone' in natal_data['location']:
+            try:
+                self.user_timezone = ZoneInfo(natal_data['location']['timezone'])
+            except Exception:
+                # Si hay un error al obtener la zona horaria, usar UTC
+                print(f"Error al obtener zona horaria {natal_data['location']['timezone']}, usando UTC")
+        
+        # Extraer fecha de nacimiento de los datos natales
+        # En main.py, cuando el usuario introduce sus datos, se crea un objeto datos_usuario con:
+        # datos_usuario = {
+        #     "hora_local": f"{fecha}T{hora}:00",
+        #     "lat": location.lat,
+        #     "lon": location.lon,
+        #     "zona_horaria": location.timezone,
+        #     "lugar": lugar
+        # }
+        # Y luego se calcula la carta natal con: natal_data = calcular_carta_natal(datos_usuario)
+        
+        # Usar una fecha por defecto si no está disponible
+        self.birth_date = datetime(1980, 1, 1, tzinfo=self.user_timezone)
+        
+        # Si hay una fecha en los datos natales en formato ISO, usarla
+        if 'date' in natal_data:
+            birth_date_str = natal_data['date']
+            self.birth_date = datetime.fromisoformat(birth_date_str.replace('Z', '+00:00'))
+            print(f"Usando fecha de nacimiento de 'date': {self.birth_date}")
+        # Si no, intentar extraerla de la hora_local en datos_usuario
+        elif 'hora_local' in natal_data:
+            try:
+                # La hora_local está en formato ISO
+                birth_date_str = natal_data['hora_local']
+                
+                # Primero, convertir a datetime sin zona horaria
+                if '+' in birth_date_str or '-' in birth_date_str[10:]:
+                    # Ya tiene zona horaria, usar directamente
+                    dt = datetime.fromisoformat(birth_date_str)
+                else:
+                    # No tiene zona horaria, asumir que ya está en la zona horaria del usuario
+                    dt = datetime.fromisoformat(birth_date_str)
+                    dt = dt.replace(tzinfo=self.user_timezone)
+                
+                # Asegurarse de que esté en la zona horaria del usuario
+                self.birth_date = dt if dt.tzinfo == self.user_timezone else dt.astimezone(self.user_timezone)
+                print(f"Usando fecha de nacimiento de 'hora_local': {self.birth_date}")
+                
+                # Añadir la fecha al formato 'date' para compatibilidad con el script de prueba
+                natal_data['date'] = self.birth_date.isoformat()
+            except Exception as e:
+                print(f"Error al extraer fecha de nacimiento de hora_local: {e}")
+                # Continuar con el siguiente método
+        
+        # Si aún no tenemos fecha de nacimiento, intentar reconstruirla a partir de los datos disponibles
+        if self.birth_date.year == 1980:  # Si seguimos usando la fecha por defecto
+            try:
+                # Usar la posición del Sol como referencia
+                if 'points' in natal_data and 'Sun' in natal_data['points']:
+                    sun_longitude = natal_data['points']['Sun']['longitude']
+                    
+                    # Estimar el mes y día a partir de la posición del Sol
+                    month = int(sun_longitude / 30) + 1  # 0° = Aries = Marzo
+                    if month > 12:
+                        month -= 12
+                    day = int((sun_longitude % 30) / 30 * 30) + 1
+                    
+                    # Usar un año razonable (30 años atrás)
+                    current_year = datetime.now().year
+                    
+                    # Crear la fecha de nacimiento
+                    self.birth_date = datetime(current_year - 30, month, min(day, 28), 12, 0, tzinfo=self.user_timezone)
+                    print(f"Usando fecha de nacimiento aproximada basada en la posición del Sol: {self.birth_date}")
+            except Exception as e:
+                print(f"Error al reconstruir fecha de nacimiento: {e}")
+                print("Usando fecha de nacimiento por defecto")
+        
+        # Crear diccionario de posiciones natales
+        self.natal_positions = {}
+        for planet_name, data in natal_data['points'].items():
+            if planet_name in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 
+                             'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']:
+                self.natal_positions[getattr(chart, planet_name.upper())] = {
+                    'longitude': data['longitude'],
+                    'latitude': 0,
+                    'distance': 0,
+                    'speed': 0
+                }
+
+    def _calculate_progressed_moon_position(self, current_date: datetime) -> float:
+        """
+        Calcula la posición de la Luna progresada para una fecha específica utilizando
+        el método ARMC 1 Naibod, que es el método utilizado por AstroSeek.
+        
+        Args:
+            current_date: Fecha para la que calcular la Luna progresada
+            
+        Returns:
+            Posición de la Luna progresada en grados absolutos (0-360)
+        """
+        try:
+            # Si la fecha es anterior o igual a la fecha de nacimiento, devolver la posición natal
+            if current_date <= self.birth_date:
+                return self.natal_positions[chart.MOON]['longitude']
+                
+            # Importar las herramientas necesarias de Immanuel
+            from immanuel.tools import date, ephemeris, forecast
+            from immanuel.const import calc, chart
+            import swisseph as swe
+            
+            # Asegurar que las fechas estén en UTC antes de convertirlas a fechas julianas
+            birth_date_utc = self.birth_date.astimezone(ZoneInfo("UTC"))
+            current_date_utc = current_date.astimezone(ZoneInfo("UTC"))
+            
+            # Convertir la fecha de nacimiento a fecha juliana
+            birth_jd = date.to_jd(birth_date_utc)
+            
+            # Convertir la fecha actual a fecha juliana
+            current_jd = date.to_jd(current_date_utc)
+            
+            # Imprimir información detallada para depuración
+            print(f"Fecha de nacimiento (local): {self.birth_date}")
+            print(f"Fecha de nacimiento (UTC): {birth_date_utc}")
+            print(f"Fecha actual (local): {current_date}")
+            print(f"Fecha actual (UTC): {current_date_utc}")
+            
+            # Calcular años transcurridos (para el cálculo de la progresión)
+            # Usamos el año solar exacto (365.24219893 días)
+            year_days = calc.YEAR_DAYS
+            years_passed = (current_jd - birth_jd) / year_days
+            
+            # Calcular la fecha juliana progresada y el ARMC progresado usando el método Naibod
+            # Esto es equivalente a lo que hace la función forecast.progression con method=calc.NAIBOD
+            progressed_jd = birth_jd + years_passed
+            
+            # Obtener el ARMC natal
+            natal_armc = ephemeris.angle(
+                index=chart.ARMC,
+                jd=birth_jd,
+                lat=self.natal_data['location']['latitude'],
+                lon=self.natal_data['location']['longitude'],
+                house_system=chart.PLACIDUS  # AstroSeek usa Placidus por defecto
+            )['lon']
+            
+            # Calcular el ARMC progresado usando el método Naibod
+            # El método Naibod avanza el ARMC a razón del movimiento medio del Sol (0.98564733° por día)
+            progressed_armc_lon = swe.degnorm(natal_armc + years_passed * calc.MEAN_MOTIONS[chart.SUN])
+            
+            # Calcular la oblicuidad de la eclíptica para la fecha progresada
+            obliquity = ephemeris.obliquity(progressed_jd)
+            
+            # Obtener la posición de la Luna para la fecha progresada
+            # Usamos armc_objects en lugar de planet para tener en cuenta el ARMC progresado
+            progressed_objects = ephemeris.armc_objects(
+                object_list=[chart.MOON],
+                jd=progressed_jd,
+                armc=progressed_armc_lon,
+                lat=self.natal_data['location']['latitude'],
+                lon=self.natal_data['location']['longitude'],
+                obliquity=obliquity,
+                house_system=chart.PLACIDUS
+            )
+            
+            # Devolver la longitud de la Luna progresada
+            return progressed_objects[chart.MOON]['lon']
+            
+        except Exception as e:
+            print(f"Error al calcular la Luna progresada: {e}")
+            # Fallback a un método más simple si hay un error
+            years_passed = (current_date - self.birth_date).total_seconds() / (365.25 * 24 * 60 * 60)
+            # Velocidad media de la Luna progresada (aproximadamente 13.2° por año)
+            moon_advancement = years_passed * 13.2
+            natal_moon_pos = self.natal_positions[chart.MOON]['longitude']
+            progressed_pos = (natal_moon_pos + moon_advancement) % 360
+            return progressed_pos
+
+    def _check_conjunctions(self, progressed_moon_pos: float, natal_obj_id: int, 
+                          current: datetime, events: list) -> None:
+        """
+        Verifica si hay una conjunción entre la Luna progresada y un planeta natal.
+        
+        Args:
+            progressed_moon_pos: Posición de la Luna progresada
+            natal_obj_id: ID del planeta natal
+            current: Fecha actual
+            events: Lista donde añadir los eventos encontrados
+        """
+        # Obtener posición del planeta natal
+        natal_pos = self.natal_positions[natal_obj_id]['longitude']
+        
+        # Calcular diferencia angular
+        diff = abs(progressed_moon_pos - natal_pos)
+        if diff > 180:
+            diff = 360 - diff
+        
+        # Verificar si hay conjunción (dentro del orbe)
+        if diff <= settings.default_orb:
+            # Crear evento para la conjunción
+            event = AstroEvent(
+                fecha_utc=current,
+                tipo_evento=EventType.LUNA_PROGRESADA,
+                descripcion=f"Luna progresada Conjunción {PLANET_NAMES[natal_obj_id]} Natal",
+                planeta1="Luna Progresada",
+                planeta2=PLANET_NAMES[natal_obj_id],
+                longitud1=progressed_moon_pos,
+                longitud2=natal_pos,
+                tipo_aspecto="Conjunción",
+                orbe=diff,
+                es_aplicativo=(diff > settings.exact_orb),  # Es aplicativo si no es exacto
+                metadata={
+                    'estado': ASPECT_STATE[calc.EXACT] if diff <= settings.exact_orb else ASPECT_STATE[calc.APPLICATIVE]
+                }
+            )
+            events.append(event)
+
+    def _create_time_segments(self, start_date: datetime, end_date: datetime, num_segments: int = 8):
+        """
+        Divide el período de tiempo en segmentos para procesamiento paralelo.
+        
+        Args:
+            start_date: Fecha inicial
+            end_date: Fecha final
+            num_segments: Número de segmentos a crear
+            
+        Returns:
+            Lista de tuplas (fecha_inicio, fecha_fin) para cada segmento
+        """
+        total_seconds = (end_date - start_date).total_seconds()
+        segment_seconds = total_seconds / num_segments
+        
+        segments = []
+        for i in range(num_segments):
+            seg_start = start_date + timedelta(seconds=i * segment_seconds)
+            # Para el último segmento, usar exactamente end_date para evitar errores de redondeo
+            seg_end = end_date if i == num_segments - 1 else start_date + timedelta(seconds=(i + 1) * segment_seconds)
+            segments.append((seg_start, seg_end))
+            
+        return segments
+
+    def _calculate_segment(self, start_date: datetime, end_date: datetime, segment_id: int = 0):
+        """
+        Calcula las conjunciones de Luna progresada para un segmento de tiempo específico.
+        
+        Args:
+            start_date: Fecha inicial del segmento
+            end_date: Fecha final del segmento
+            segment_id: Identificador del segmento (para seguimiento)
+            
+        Returns:
+            Lista de eventos de conjunciones para este segmento
+        """
+        events = []
+        
+        # Variables para seguimiento de progreso
+        total_days = (end_date - start_date).days + 1
+        last_reported_progress = -1
+        segment_start_time = time.time()
+        
+        # Búsqueda día a día (la Luna progresada se mueve muy lentamente)
+        current = start_date
+        day_count = 0
+        
+        while current <= end_date:
+            # Calcular y mostrar progreso cada 5%
+            day_count += 1
+            progress = int(day_count * 100 / total_days)
+            if progress > last_reported_progress and progress % 5 == 0:
+                elapsed = time.time() - segment_start_time
+                eta = (elapsed / (progress + 0.1)) * (100 - progress) if progress > 0 else 0
+                print(f"Segmento {segment_id}: {progress}% ({current.strftime('%Y-%m-%d')}) - "
+                      f"Tiempo transcurrido: {elapsed:.1f}s - "
+                      f"Tiempo restante estimado: {eta:.1f}s")
+                last_reported_progress = progress
+                
+            # Calcular posición de la Luna progresada para este día
+            progressed_moon_pos = self._calculate_progressed_moon_position(current)
+            
+            # Verificar conjunciones con cada planeta natal
+            for natal_obj_id in self.natal_positions:
+                self._check_conjunctions(progressed_moon_pos, natal_obj_id, current, events)
+            
+            # Avanzar 1 día
+            current += timedelta(days=1)
+        
+        # Ordenar por fecha y orbe
+        events.sort(key=lambda x: (x.fecha_utc, x.orbe))
+        
+        print(f"Segmento {segment_id} completado: {len(events)} eventos encontrados")
+        return events
+
+    def _find_conjunction_date(self, planet_id: int, start_date: datetime, end_date: datetime) -> tuple:
+        """
+        Encuentra la fecha exacta de conjunción entre la Luna progresada y un planeta natal
+        usando búsqueda binaria.
+        
+        Args:
+            planet_id: ID del planeta natal
+            start_date: Fecha inicial para la búsqueda
+            end_date: Fecha final para la búsqueda
+            
+        Returns:
+            Tupla (fecha de conjunción, orbe) o None si no hay conjunción
+        """
+        # Obtener posición del planeta natal
+        natal_pos = self.natal_positions[planet_id]['longitude']
+        
+        # Calcular posiciones de Luna progresada al inicio y fin del período
+        start_pos = self._calculate_progressed_moon_position(start_date)
+        end_pos = self._calculate_progressed_moon_position(end_date)
+        
+        # Calcular diferencias angulares
+        start_diff = abs(start_pos - natal_pos)
+        if start_diff > 180:
+            start_diff = 360 - start_diff
+            
+        end_diff = abs(end_pos - natal_pos)
+        if end_diff > 180:
+            end_diff = 360 - end_diff
+        
+        # Si ambas diferencias son mayores que el orbe, verificar si la Luna progresada
+        # pasa por el planeta durante el período
+        if start_diff > settings.default_orb and end_diff > settings.default_orb:
+            # Calcular si la Luna progresada pasa por el planeta
+            # La Luna progresada se mueve aproximadamente 1° por mes
+            # Verificar si la posición del planeta está entre las posiciones inicial y final
+            # de la Luna progresada, considerando el movimiento en círculo
+            
+            # Normalizar posiciones para manejar el cruce de 0°/360°
+            if abs(end_pos - start_pos) > 180:
+                # Hay un cruce de 0°/360°
+                if start_pos > end_pos:
+                    # Movimiento de 350° a 10° (por ejemplo)
+                    if natal_pos > start_pos or natal_pos < end_pos:
+                        # El planeta está en el camino
+                        pass
+                    else:
+                        return None
+                else:
+                    # Movimiento de 10° a 350° (por ejemplo)
+                    if natal_pos < start_pos or natal_pos > end_pos:
+                        # El planeta está en el camino
+                        pass
+                    else:
+                        return None
+            else:
+                # No hay cruce de 0°/360°
+                if start_pos < end_pos:
+                    # Movimiento normal (por ejemplo, de 10° a 20°)
+                    if natal_pos < start_pos or natal_pos > end_pos:
+                        return None
+                else:
+                    # Movimiento retrógrado (poco probable para Luna progresada)
+                    if natal_pos > start_pos or natal_pos < end_pos:
+                        return None
+        
+        # Si la diferencia inicial es menor que el orbe, la conjunción ya está ocurriendo al inicio
+        if start_diff <= settings.default_orb:
+            return (start_date, start_diff)
+            
+        # Si la diferencia final es menor que el orbe, la conjunción ocurre al final
+        if end_diff <= settings.default_orb:
+            return (end_date, end_diff)
+        
+        # Usar búsqueda binaria para encontrar la fecha de conjunción
+        min_date = start_date
+        max_date = end_date
+        best_date = None
+        min_orb = float('inf')
+        
+        # Máximo 10 iteraciones para evitar bucles infinitos
+        for _ in range(10):
+            # Calcular fecha media
+            mid_seconds = (min_date.timestamp() + max_date.timestamp()) / 2
+            mid_date = datetime.fromtimestamp(mid_seconds, tz=ZoneInfo("UTC"))
+            
+            # Calcular posición y diferencia
+            mid_pos = self._calculate_progressed_moon_position(mid_date)
+            mid_diff = abs(mid_pos - natal_pos)
+            if mid_diff > 180:
+                mid_diff = 360 - mid_diff
+                
+            # Actualizar mejor fecha si el orbe es menor
+            if mid_diff < min_orb:
+                min_orb = mid_diff
+                best_date = mid_date
+                
+            # Si el orbe es menor que el umbral, hemos encontrado una conjunción
+            if mid_diff <= settings.default_orb:
+                # Refinar la búsqueda para encontrar el orbe mínimo
+                return self._refine_conjunction(planet_id, mid_date, min_orb)
+                
+            # Decidir qué mitad explorar
+            if mid_date < max_date and mid_date > min_date:
+                # Calcular pendiente para determinar dirección
+                time_diff = (max_date - min_date).total_seconds()
+                pos_diff = end_pos - start_pos
+                if abs(pos_diff) > 180:
+                    # Ajustar para cruce de 0°/360°
+                    if pos_diff > 0:
+                        pos_diff -= 360
+                    else:
+                        pos_diff += 360
+                        
+                # Velocidad angular (grados por segundo)
+                angular_velocity = pos_diff / time_diff
+                
+                # Distancia angular al planeta
+                dist_to_planet = mid_pos - natal_pos
+                if abs(dist_to_planet) > 180:
+                    # Ajustar para cruce de 0°/360°
+                    if dist_to_planet > 0:
+                        dist_to_planet -= 360
+                    else:
+                        dist_to_planet += 360
+                        
+                # Si la Luna progresada se está acercando al planeta, explorar hacia adelante
+                if (angular_velocity > 0 and dist_to_planet < 0) or (angular_velocity < 0 and dist_to_planet > 0):
+                    min_date = mid_date
+                else:
+                    max_date = mid_date
+            else:
+                # No se puede dividir más
+                break
+                
+        # Si llegamos aquí, no encontramos una conjunción exacta
+        # Devolver la mejor aproximación si está dentro del orbe
+        if min_orb <= settings.default_orb and best_date:
+            return (best_date, min_orb)
+            
+        return None
+        
+    def _refine_conjunction(self, planet_id: int, approx_date: datetime, approx_orb: float) -> tuple:
+        """
+        Refina la fecha de conjunción para encontrar el orbe mínimo.
+        
+        Args:
+            planet_id: ID del planeta natal
+            approx_date: Fecha aproximada de conjunción
+            approx_orb: Orbe aproximado
+            
+        Returns:
+            Tupla (fecha refinada, orbe mínimo)
+        """
+        natal_pos = self.natal_positions[planet_id]['longitude']
+        
+        # Buscar en un rango de ±45 días alrededor de la fecha aproximada
+        min_date = approx_date - timedelta(days=45)
+        max_date = approx_date + timedelta(days=45)
+        
+        best_date = approx_date
+        min_orb = approx_orb
+        
+        # Verificar cada día en el rango
+        current = min_date
+        while current <= max_date:
+            pos = self._calculate_progressed_moon_position(current)
+            diff = abs(pos - natal_pos)
+            if diff > 180:
+                diff = 360 - diff
+                
+            if diff < min_orb:
+                min_orb = diff
+                best_date = current
+                
+            current += timedelta(days=1)
+            
+        return (best_date, min_orb)
+
+    def calculate_all(self, start_date: datetime = None, end_date: datetime = None) -> list:
+        """
+        Calcula todas las conjunciones de Luna progresada para el período especificado
+        usando un algoritmo optimizado.
+        
+        Args:
+            start_date: Fecha inicial (default: 1 enero del año actual)
+            end_date: Fecha final (default: 31 diciembre del año actual)
+            
+        Returns:
+            Lista de eventos de conjunciones
+        """
+        # Si no se especifican fechas, usar el año actual completo
+        if not start_date:
+            start_date = datetime(datetime.now().year, 1, 1, tzinfo=ZoneInfo("UTC"))
+        if not end_date:
+            end_date = datetime(datetime.now().year, 12, 31, 23, 59, tzinfo=ZoneInfo("UTC"))
+
+        # Registrar tiempo de inicio
+        start_time = time.time()
+        
+        print("\nCalculando conjunciones de Luna progresada...")
+        
+        # Lista para almacenar eventos
+        all_events = []
+        
+        # Verificar conjunciones para cada planeta natal
+        for planet_id in PLANETS_TO_CHECK:
+            if planet_id in self.natal_positions:
+                # Buscar fecha de conjunción
+                result = self._find_conjunction_date(planet_id, start_date, end_date)
+                
+                if result:
+                    conj_date, orb = result
+                    
+                    # Calcular posición de Luna progresada
+                    prog_moon_pos = self._calculate_progressed_moon_position(conj_date)
+                    
+                    # Obtener signo y grado para la posición de la Luna progresada
+                    from src.core.constants import AstronomicalConstants
+                    moon_sign = AstronomicalConstants.get_sign_name(prog_moon_pos)
+                    moon_degree = prog_moon_pos % 30
+                    
+                    # Obtener signo y grado para la posición natal
+                    natal_pos = self.natal_positions[planet_id]['longitude']
+                    natal_sign = AstronomicalConstants.get_sign_name(natal_pos)
+                    natal_degree = natal_pos % 30
+                    
+                    # Formatear posiciones en formato de grados
+                    def format_position(degrees):
+                        whole_degrees = int(degrees)
+                        minutes_decimal = (degrees - whole_degrees) * 60
+                        minutes = int(minutes_decimal)
+                        seconds = int((minutes_decimal - minutes) * 60)
+                        return f"{whole_degrees}°{minutes}'{seconds}\""
+                    
+                    moon_position_str = f"{format_position(moon_degree)} {moon_sign}"
+                    natal_position_str = f"{format_position(natal_degree)} {natal_sign}"
+                    
+                    # Convertir la fecha a la zona horaria del usuario para mostrarla correctamente
+                    local_conj_date = conj_date.astimezone(self.user_timezone)
+                    
+                    # Imprimir información detallada para depuración
+                    print(f"Fecha de conjunción (UTC): {conj_date}")
+                    print(f"Fecha de conjunción (Local): {local_conj_date}")
+                    print(f"Zona horaria del usuario: {self.user_timezone}")
+                    
+                    # Verificar si la fecha local está cerca de la medianoche
+                    midnight = local_conj_date.replace(hour=0, minute=0, second=0, microsecond=0)
+                    next_midnight = midnight + timedelta(days=1)
+                    hours_to_midnight = (next_midnight - local_conj_date).total_seconds() / 3600
+                    
+                    print(f"Hora local: {local_conj_date.hour}:{local_conj_date.minute}")
+                    print(f"Horas hasta medianoche: {hours_to_midnight:.2f}")
+                    
+                    # Si está cerca de la medianoche, mostrar la fecha del día siguiente
+                    if hours_to_midnight < 6:  # Si faltan menos de 6 horas para la medianoche
+                        next_day = (local_conj_date + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+                        print(f"Fecha redondeada al día siguiente: {next_day.strftime('%Y-%m-%d')}")
+                        print(f"AstroSeek probablemente muestra: {next_day.strftime('%Y-%m-%d')}")
+                    else:
+                        print(f"Fecha redondeada al día actual: {local_conj_date.strftime('%Y-%m-%d')}")
+                        print(f"AstroSeek probablemente muestra: {local_conj_date.strftime('%Y-%m-%d')}")
+                    
+                    # Crear evento
+                    event = AstroEvent(
+                        fecha_utc=conj_date,
+                        tipo_evento=EventType.LUNA_PROGRESADA,
+                        descripcion=f"Luna progresada Conjunción {PLANET_NAMES[planet_id]} Natal",
+                        planeta1="Luna Progresada",
+                        planeta2=PLANET_NAMES[planet_id],
+                        longitud1=prog_moon_pos,
+                        longitud2=natal_pos,
+                        tipo_aspecto="Conjunción",
+                        orbe=orb,
+                        es_aplicativo=(orb > settings.exact_orb),
+                        metadata={
+                            'estado': ASPECT_STATE[calc.EXACT] if orb <= settings.exact_orb else ASPECT_STATE[calc.APPLICATIVE],
+                            'movimiento': 'Directo',  # La Luna progresada siempre se mueve en dirección directa
+                            'posicion1': moon_position_str,
+                            'posicion2': natal_position_str
+                        },
+                        timezone_str=self.user_timezone.key  # Usar la zona horaria del usuario
+                    )
+                    all_events.append(event)
+                    print(f"Encontrada conjunción con {PLANET_NAMES[planet_id]} el {conj_date.strftime('%Y-%m-%d')} (orbe: {orb:.2f}°)")
+        
+        # Ordenar eventos por fecha
+        all_events.sort(key=lambda x: x.fecha_utc)
+        
+        # Mostrar resumen
+        elapsed = time.time() - start_time
+        print(f"\nCálculo completado en {elapsed:.2f} segundos")
+        print(f"Total de conjunciones encontradas: {len(all_events)}")
+        
+        return all_events

@@ -1,0 +1,34 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Distribution / packaging
+*.egg-info/
+.eggs/
+dist/
+build/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.manifest
+*.spec
+
+# Output directory
+output/
+
+# Cache file
+standard_results_cache.pkl
+
+# Backup files
+*.bak
+
+# macOS specific
+.DS_Store
+
+# Virtual environment
+venv/
+*.venv/
+env/
+ENV/

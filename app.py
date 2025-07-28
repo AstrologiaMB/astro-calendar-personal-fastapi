@@ -1,0 +1,702 @@
+"""
+FastAPI Microservice for Personal Astrological Calendar
+Transforms the interactive astro_calendar_personal_v3 into a REST API service.
+"""
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any, Optional
+import uvicorn
+from datetime import datetime
+import pytz
+import traceback
+import time
+import ephem
+import httpx
+
+# Import the existing calculation logic
+from src.core.location import Location
+from src.calculators.natal_chart import calcular_carta_natal
+from src.calculators.transits_calculator_factory import TransitsCalculatorFactory
+from src.calculators.profections_calculator import ProfectionsCalculator
+from src.calculators.lunar_phases import LunarPhaseCalculator
+from src.calculators.eclipses import EclipseCalculator
+from src.core.base_event import AstroEvent
+from src.core.constants import EventType
+
+app = FastAPI(
+    title="Personal Astrology Calendar API",
+    description="Complete microservice for calculating personal astrological events: transits, lunar phases, eclipses, progressed moon, and profections",
+    version="2.0.0"
+)
+
+# Add CORS middleware for frontend integration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure appropriately for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Pydantic models for request/response
+class LocationData(BaseModel):
+    latitude: float
+    longitude: float
+    name: str
+    timezone: str
+
+class BirthDataRequest(BaseModel):
+    """Request model for basic birth data that will be used to calculate natal chart dynamically."""
+    name: str
+    birth_date: str = Field(description="Birth date in YYYY-MM-DD format")
+    birth_time: str = Field(description="Birth time in HH:MM format")
+    location: LocationData
+    year: int = Field(default=2025, description="Year for which to calculate events")
+
+# Legacy models for backward compatibility (if needed)
+class PointData(BaseModel):
+    sign: str
+    position: str
+    longitude: float
+    latitude: Optional[float] = 0
+    distance: Optional[float] = 0
+    speed: Optional[float] = 0
+    retrograde: Optional[bool] = False
+
+class HouseData(BaseModel):
+    sign: str
+    position: str
+    longitude: float
+
+class NatalDataRequest(BaseModel):
+    points: Dict[str, PointData]
+    houses: Dict[str, HouseData]
+    location: LocationData
+    hora_local: str
+    name: str
+    year: int = Field(default=2025, description="Year for which to calculate events")
+
+class AstroEventResponse(BaseModel):
+    fecha_utc: str
+    hora_utc: str
+    tipo_evento: str
+    descripcion: str
+    planeta1: Optional[str] = None
+    planeta2: Optional[str] = None
+    posicion1: Optional[str] = None
+    posicion2: Optional[str] = None
+    tipo_aspecto: Optional[str] = None
+    orbe: Optional[str] = None
+    es_aplicativo: Optional[str] = None
+    harmony: Optional[str] = None
+    elevacion: Optional[str] = ""
+    azimut: Optional[str] = ""
+    signo: Optional[str] = None
+    grado: Optional[str] = None
+    posicion: Optional[str] = None
+    casa_natal: Optional[int] = None
+    house_transits: Optional[List[Dict[str, Any]]] = None
+    interpretacion: Optional[str] = None # Nuevo campo para la interpretación
+
+class CalculationResponse(BaseModel):
+    events: List[AstroEventResponse]
+    total_events: int
+    calculation_time: float
+    year: int
+    name: str
+
+class HealthResponse(BaseModel):
+    status: str
+    timestamp: str
+    version: str
+
+class InfoResponse(BaseModel):
+    service: str
+    version: str
+    description: str
+    endpoints: List[str]
+    features: List[str]
+
+def convert_natal_data_format(request: NatalDataRequest) -> dict:
+    """Convert the request format to the internal natal data format."""
+    natal_data = {
+        'name': request.name,
+        'location': {
+            'latitude': request.location.latitude,
+            'longitude': request.location.longitude,
+            'name': request.location.name,
+            'timezone': request.location.timezone
+        },
+        'hora_local': request.hora_local,
+        'points': {},
+        'houses': {}
+    }
+    
+    # Convert points
+    for planet_name, point_data in request.points.items():
+        natal_data['points'][planet_name] = {
+            'sign': point_data.sign,
+            'position': point_data.position,
+            'longitude': point_data.longitude,
+            'latitude': point_data.latitude,
+            'distance': point_data.distance,
+            'speed': point_data.speed,
+            'retrograde': point_data.retrograde
+        }
+    
+    # Convert houses
+    for house_num, house_data in request.houses.items():
+        natal_data['houses'][house_num] = {
+            'sign': house_data.sign,
+            'position': house_data.position,
+            'longitude': house_data.longitude
+        }
+    
+    return natal_data
+
+def _convertir_a_grados_absolutos(signo: str, grado: float, desde_ingles: bool = True) -> float:
+    """
+    Convierte una posición zodiacal (signo y grado) a grados absolutos (0-360).
+    """
+    # Mapeo de signos a su posición base (0-330)
+    SIGNOS_BASE = {
+        # Inglés
+        'Aries': 0, 'Taurus': 30, 'Gemini': 60, 'Cancer': 90,
+        'Leo': 120, 'Virgo': 150, 'Libra': 180, 'Scorpio': 210,
+        'Sagittarius': 240, 'Capricorn': 270, 'Aquarius': 300, 'Pisces': 330,
+        # Español
+        'Aries': 0, 'Tauro': 30, 'Géminis': 60, 'Cáncer': 90,
+        'Leo': 120, 'Virgo': 150, 'Libra': 180, 'Escorpio': 210,
+        'Sagitario': 240, 'Capricornio': 270, 'Acuario': 300, 'Piscis': 330
+    }
+    return SIGNOS_BASE[signo] + grado
+
+def _parsear_posicion(posicion: str) -> float:
+    """
+    Convierte una posición en formato '27°45\'16"' a grados decimales.
+    """
+    partes = posicion.replace('°', ' ').replace('\'', ' ').replace('"', ' ').split()
+    grados = float(partes[0])
+    minutos = float(partes[1]) if len(partes) > 1 else 0
+    segundos = float(partes[2]) if len(partes) > 2 else 0
+    return grados + minutos/60 + segundos/3600
+
+def _calcular_orbe(pos1: float, pos2: float) -> float:
+    """
+    Calcula el orbe más corto entre dos posiciones zodiacales.
+    """
+    diff = abs(pos1 - pos2)
+    if diff > 180:
+        diff = 360 - diff
+    return diff
+
+def _add_moon_phase_and_eclipse_aspects(lunar_events: List[AstroEvent], eclipse_events: List[AstroEvent], 
+                                       natal_data: dict, timezone_str: str) -> List[AstroEvent]:
+    """
+    Agrega eventos de aspectos para fases lunares y eclipses con planetas natales.
+    Replica la lógica del algoritmo original evitando duplicaciones.
+    """
+    aspect_events = []
+    
+    # Mapeo de nombres de planetas
+    PLANET_NAMES = {
+        'Sun': 'Sol', 'Moon': 'Luna', 'Mercury': 'Mercurio',
+        'Venus': 'Venus', 'Mars': 'Marte', 'Jupiter': 'Júpiter',
+        'Saturn': 'Saturno', 'Uranus': 'Urano',
+        'Neptune': 'Neptuno', 'Pluto': 'Plutón'
+    }
+    
+    # Crear un set de fechas de eclipses para evitar duplicaciones
+    eclipse_dates = set()
+    for eclipse_event in eclipse_events:
+        # Usar fecha y hora para identificar eclipses únicos
+        eclipse_key = (eclipse_event.fecha_utc.date(), eclipse_event.fecha_utc.hour, eclipse_event.fecha_utc.minute)
+        eclipse_dates.add(eclipse_key)
+    
+    # Procesar eventos de fases lunares (solo si no hay eclipse en esa fecha/hora)
+    for event in lunar_events:
+        if event.tipo_evento in [EventType.LUNA_NUEVA, EventType.LUNA_LLENA]:
+            # Verificar si hay un eclipse en la misma fecha/hora
+            event_key = (event.fecha_utc.date(), event.fecha_utc.hour, event.fecha_utc.minute)
+            if event_key in eclipse_dates:
+                # Si hay eclipse, saltamos la fase lunar para evitar duplicación
+                continue
+                
+            # Para luna llena usamos la posición de la luna, para luna nueva la posición del sol
+            pos = event.longitud1
+            if event.tipo_evento == EventType.LUNA_NUEVA:
+                # Para luna nueva, sumar 180° a la posición de la luna para obtener la posición del sol
+                pos = (pos + 180) % 360
+            
+            for planet_name, data in natal_data['points'].items():
+                if planet_name in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 
+                                 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']:
+                    planet_pos = _convertir_a_grados_absolutos(
+                        data['sign'],
+                        _parsear_posicion(data['position'])
+                    )
+                    orb = _calcular_orbe(pos, planet_pos)
+                    
+                    if orb <= 4.0:  # Orbe de 4°
+                        # Crear evento para la conjunción
+                        tipo = "Luna llena" if event.tipo_evento == EventType.LUNA_LLENA else "Luna nueva"
+                        planeta1 = "Luna" if event.tipo_evento == EventType.LUNA_LLENA else "Sol"
+                        grado = event.grado
+                        conj_event = AstroEvent(
+                            fecha_utc=event.fecha_utc,
+                            tipo_evento=EventType.ASPECTO,
+                            descripcion=f"{tipo} en {event.signo} {AstroEvent.format_degree(grado)} en conjunción con {PLANET_NAMES[planet_name]} natal",
+                            planeta1=planeta1,
+                            planeta2=PLANET_NAMES[planet_name],
+                            longitud1=pos,
+                            longitud2=planet_pos,
+                            tipo_aspecto="Conjunción",
+                            orbe=orb,
+                            timezone_str=timezone_str
+                        )
+                        aspect_events.append(conj_event)
+    
+    # Procesar eventos de eclipses (estos tienen prioridad sobre las fases lunares)
+    for event in eclipse_events:
+        if event.tipo_evento in [EventType.ECLIPSE_SOLAR, EventType.ECLIPSE_LUNAR]:
+            # Para eclipse lunar usamos la posición de la luna, para eclipse solar la posición del sol
+            pos = event.longitud1
+            if event.tipo_evento == EventType.ECLIPSE_SOLAR:
+                # Para eclipse solar, sumar 180° a la posición de la luna para obtener la posición del sol
+                pos = (pos + 180) % 360
+            
+            for planet_name, data in natal_data['points'].items():
+                if planet_name in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 
+                                 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']:
+                    planet_pos = _convertir_a_grados_absolutos(
+                        data['sign'],
+                        _parsear_posicion(data['position'])
+                    )
+                    orb = _calcular_orbe(pos, planet_pos)
+                    
+                    if orb <= 4.0:  # Orbe de 4°
+                        # Crear evento para la conjunción
+                        tipo = "Eclipse lunar" if event.tipo_evento == EventType.ECLIPSE_LUNAR else "Eclipse solar"
+                        planeta1 = "Luna" if event.tipo_evento == EventType.ECLIPSE_LUNAR else "Sol"
+                        grado = event.grado
+                        conj_event = AstroEvent(
+                            fecha_utc=event.fecha_utc,
+                            tipo_evento=EventType.ASPECTO,
+                            descripcion=f"{tipo} en {event.signo} {AstroEvent.format_degree(grado)} en conjunción con {PLANET_NAMES[planet_name]} natal",
+                            planeta1=planeta1,
+                            planeta2=PLANET_NAMES[planet_name],
+                            longitud1=pos,
+                            longitud2=planet_pos,
+                            tipo_aspecto="Conjunción",
+                            orbe=orb,
+                            timezone_str=timezone_str
+                        )
+                        aspect_events.append(conj_event)
+    
+    return aspect_events
+
+def convert_astro_event_to_response(event: AstroEvent) -> AstroEventResponse:
+    """Convert AstroEvent object to API response format."""
+    # Format the date and time
+    fecha_utc = event.fecha_utc.strftime("%Y-%m-%d")
+    hora_utc = event.fecha_utc.strftime("%H:%M")
+    
+    # Format orbe if present
+    orbe_str = None
+    if hasattr(event, 'orbe') and event.orbe is not None:
+        if event.orbe < 0.01:
+            orbe_str = "0°00'00\""
+        else:
+            degrees = int(event.orbe)
+            minutes = int((event.orbe - degrees) * 60)
+            seconds = int(((event.orbe - degrees) * 60 - minutes) * 60)
+            orbe_str = f"{degrees}°{minutes:02d}'{seconds:02d}\""
+    
+    # Determine harmony based on aspect type
+    harmony = None
+    if hasattr(event, 'tipo_aspecto') and event.tipo_aspecto:
+        if event.tipo_aspecto in ['Conjunción', 'Sextil', 'Trígono']:
+            harmony = 'Armónico' if event.tipo_aspecto != 'Conjunción' else 'Neutro'
+        elif event.tipo_aspecto in ['Cuadratura', 'Oposición']:
+            harmony = 'Tensión'
+    
+    # Format positions if available
+    posicion1 = None
+    posicion2 = None
+    if hasattr(event, 'metadata') and event.metadata:
+        posicion1 = event.metadata.get('posicion1')
+        posicion2 = event.metadata.get('posicion2')
+    
+    # Handle special case for house transits state
+    descripcion = event.descripcion
+    house_transits_data = None
+    if hasattr(event, 'tipo_evento') and event.tipo_evento == EventType.TRANSITO_CASA_ESTADO:
+        # For house transits, send structured data instead of text parsing
+        if hasattr(event, 'metadata') and event.metadata and 'house_transits' in event.metadata:
+            house_transits_data = event.metadata['house_transits']
+            descripcion = "Estado actual de tránsitos de largo plazo"
+    
+    return AstroEventResponse(
+        fecha_utc=fecha_utc,
+        hora_utc=hora_utc,
+        tipo_evento=event.tipo_evento.value if hasattr(event.tipo_evento, 'value') else str(event.tipo_evento),
+        descripcion=descripcion,
+        planeta1=getattr(event, 'planeta1', None),
+        planeta2=getattr(event, 'planeta2', None),
+        posicion1=posicion1,
+        posicion2=posicion2,
+        tipo_aspecto=getattr(event, 'tipo_aspecto', None),
+        orbe=orbe_str,
+        es_aplicativo="Sí" if getattr(event, 'es_aplicativo', False) else "No",
+        harmony=harmony,
+        elevacion=str(getattr(event, 'elevacion', "") or ""),
+        azimut=str(getattr(event, 'azimut', "") or ""),
+        signo=getattr(event, 'signo', None),
+        grado=str(getattr(event, 'grado', "") or ""),
+        posicion=getattr(event, 'posicion', None),
+        casa_natal=getattr(event, 'casa_natal', None),
+        house_transits=house_transits_data
+    )
+
+@app.post("/calculate-personal-calendar-dynamic", response_model=CalculationResponse)
+async def calculate_personal_calendar_dynamic(request: BirthDataRequest):
+    """
+    Calculate personal astrological calendar events using dynamic natal chart calculation.
+    This endpoint receives basic birth data and calculates the complete natal chart dynamically.
+    """
+    start_time = time.time()
+    
+    try:
+        print(f"Calculating personal calendar for {request.name} using dynamic natal chart calculation...")
+        
+        # Create location object
+        location = Location(
+            lat=request.location.latitude,
+            lon=request.location.longitude,
+            name=request.location.name,
+            timezone=request.location.timezone,
+            elevation=25
+        )
+        
+        # Validate timezone
+        try:
+            from zoneinfo import ZoneInfo
+            _ = ZoneInfo(location.timezone)
+        except Exception as e:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid timezone '{location.timezone}': {str(e)}"
+            )
+        
+        # Prepare birth data for natal chart calculation (same format as main.py)
+        birth_data = {
+            "hora_local": f"{request.birth_date}T{request.birth_time}:00",
+            "lat": request.location.latitude,
+            "lon": request.location.longitude,
+            "zona_horaria": request.location.timezone,
+            "lugar": request.location.name
+        }
+        
+        # Calculate complete natal chart dynamically (same as script original)
+        print("Calculating complete natal chart with calcular_carta_natal()...")
+        natal_data = calcular_carta_natal(birth_data)
+        natal_data['name'] = request.name
+        
+        print(f"Natal chart calculated successfully with {len(natal_data['points'])} points")
+        print(f"Critical points included: Asc={('Asc' in natal_data['points'])}, MC={('MC' in natal_data['points'])}")
+        
+        # Set up date range for the year
+        start_date = datetime(request.year, 1, 1, tzinfo=pytz.UTC)
+        end_date = datetime(request.year + 1, 1, 1, tzinfo=pytz.UTC)
+        
+        all_events = []
+        
+        # Calculate transits using V4 calculator
+        print(f"Calculating transits for {request.name} using V4 calculator...")
+        transits_calculator = TransitsCalculatorFactory.create_calculator(
+            natal_data,
+            calculator_type="astronomical_v4",
+            use_parallel=False,
+            timezone_str=location.timezone
+        )
+        transit_events = transits_calculator.calculate_all(start_date, end_date)
+        all_events.extend(transit_events)
+        print(f"Calculated {len(transit_events)} transit events")
+        
+        # Debug: Check for house transit events
+        house_events = [e for e in transit_events if hasattr(e, 'tipo_evento') and e.tipo_evento == EventType.TRANSITO_CASA_ESTADO]
+        print(f"DEBUG: Found {len(house_events)} house transit events in V4 calculator")
+        if house_events:
+            for he in house_events:
+                print(f"DEBUG: House event - {he.tipo_evento} - {he.descripcion}")
+        
+        # Calculate progressed moon
+        print("Calculating progressed moon conjunctions...")
+        progressed_calculator = TransitsCalculatorFactory.create_calculator(
+            natal_data,
+            calculator_type="progressed_moon"
+        )
+        progressed_events = progressed_calculator.calculate_all(start_date, end_date)
+        all_events.extend(progressed_events)
+        print(f"Calculated {len(progressed_events)} progressed moon events")
+        
+        # Calculate profections
+        print("Calculating annual profections...")
+        profections_calculator = ProfectionsCalculator(natal_data)
+        profection_events = profections_calculator.calculate_profection_events(start_date, end_date)
+        all_events.extend(profection_events)
+        print(f"Calculated {len(profection_events)} profection events")
+        
+        # Calculate lunar phases (new moon, full moon)
+        print("Calculating lunar phases...")
+        observer = ephem.Observer()
+        observer.lat = str(location.lat)
+        observer.lon = str(location.lon)
+        observer.elevation = location.elevation
+        
+        lunar_calculator = LunarPhaseCalculator(observer, location.timezone, natal_data.get('houses'))
+        lunar_events = lunar_calculator.calculate_phases(start_date, end_date)
+        all_events.extend(lunar_events)
+        print(f"Calculated {len(lunar_events)} lunar phase events")
+        
+        # Calculate eclipses (solar and lunar)
+        print("Calculating eclipses...")
+        eclipse_calculator = EclipseCalculator(observer, location.timezone, natal_data.get('houses'))
+        eclipse_events = eclipse_calculator.calculate_eclipses(start_date, end_date)
+        all_events.extend(eclipse_events)
+        print(f"Calculated {len(eclipse_events)} eclipse events")
+        
+        # Add moon phase and eclipse aspect events (replicating original algorithm)
+        print("Adding moon phase and eclipse aspect events...")
+        aspect_events = _add_moon_phase_and_eclipse_aspects(
+            lunar_events, eclipse_events, natal_data, location.timezone
+        )
+        all_events.extend(aspect_events)
+        print(f"Added {len(aspect_events)} aspect events")
+        
+        # Sort events by date
+        all_events.sort(key=lambda x: x.fecha_utc)
+        
+        # Convert to response format
+        response_events = [convert_astro_event_to_response(event) for event in all_events]
+
+        # --- INICIO: Fase 3 - Llamada al servicio de Interpretaciones ---
+        print("📞 Llamando al servicio de interpretaciones para enriquecer eventos...")
+        try:
+            # Preparar el payload para el servicio de interpretaciones
+            eventos_para_interpretar = [{"descripcion": evento.descripcion} for evento in response_events]
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "http://localhost:8002/interpretar-eventos",
+                    json={"eventos": eventos_para_interpretar},
+                    timeout=60.0 # Timeout de 60 segundos
+                )
+                response.raise_for_status() # Lanza una excepción si el status no es 2xx
+                
+                # Procesar la respuesta
+                datos_interpretados = response.json()
+                mapa_interpretaciones = {
+                    item['descripcion']: item['interpretacion'] 
+                    for item in datos_interpretados.get('eventos_interpretados', [])
+                }
+                
+                # Enriquecer los eventos originales con las interpretaciones
+                for evento in response_events:
+                    if evento.descripcion in mapa_interpretaciones:
+                        evento.interpretacion = mapa_interpretaciones[evento.descripcion]
+                
+                print("✅ Eventos enriquecidos con interpretaciones.")
+
+        except httpx.RequestError as e:
+            print(f"⚠️ Error de red al llamar al servicio de interpretaciones: {e}. Devolviendo eventos sin interpretar.")
+        except Exception as e:
+            print(f"⚠️ Error inesperado durante la fase de interpretación: {e}. Devolviendo eventos sin interpretar.")
+        # --- FIN: Fase 3 ---
+
+        calculation_time = time.time() - start_time
+        
+        return CalculationResponse(
+            events=response_events,
+            total_events=len(response_events),
+            calculation_time=calculation_time,
+            year=request.year,
+            name=request.name
+        )
+        
+    except Exception as e:
+        print(f"Error calculating personal calendar: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error calculating personal calendar: {str(e)}"
+        )
+
+@app.post("/calculate-personal-calendar", response_model=CalculationResponse)
+async def calculate_personal_calendar(request: NatalDataRequest):
+    """
+    Legacy endpoint: Calculate personal astrological calendar events using pre-calculated natal chart.
+    This endpoint receives a complete natal chart and uses it for calculations.
+    """
+    start_time = time.time()
+    
+    try:
+        # Convert request format to internal format
+        natal_data = convert_natal_data_format(request)
+        
+        # Create location object
+        location = Location(
+            lat=request.location.latitude,
+            lon=request.location.longitude,
+            name=request.location.name,
+            timezone=request.location.timezone,
+            elevation=25
+        )
+        
+        # Validate timezone
+        try:
+            from zoneinfo import ZoneInfo
+            _ = ZoneInfo(location.timezone)
+        except Exception as e:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid timezone '{location.timezone}': {str(e)}"
+            )
+        
+        # Set up date range for the year
+        start_date = datetime(request.year, 1, 1, tzinfo=pytz.UTC)
+        end_date = datetime(request.year + 1, 1, 1, tzinfo=pytz.UTC)
+        
+        all_events = []
+        
+        # Calculate transits using V4 calculator
+        print(f"Calculating transits for {request.name} using V4 calculator...")
+        transits_calculator = TransitsCalculatorFactory.create_calculator(
+            natal_data,
+            calculator_type="astronomical_v4",
+            use_parallel=False,
+            timezone_str=location.timezone
+        )
+        transit_events = transits_calculator.calculate_all(start_date, end_date)
+        all_events.extend(transit_events)
+        print(f"Calculated {len(transit_events)} transit events")
+        
+        # Debug: Check for house transit events
+        house_events = [e for e in transit_events if hasattr(e, 'tipo_evento') and e.tipo_evento == EventType.TRANSITO_CASA_ESTADO]
+        print(f"DEBUG: Found {len(house_events)} house transit events in V4 calculator")
+        if house_events:
+            for he in house_events:
+                print(f"DEBUG: House event - {he.tipo_evento} - {he.descripcion}")
+        
+        # Calculate progressed moon
+        print("Calculating progressed moon conjunctions...")
+        progressed_calculator = TransitsCalculatorFactory.create_calculator(
+            natal_data,
+            calculator_type="progressed_moon"
+        )
+        progressed_events = progressed_calculator.calculate_all(start_date, end_date)
+        all_events.extend(progressed_events)
+        print(f"Calculated {len(progressed_events)} progressed moon events")
+        
+        # Calculate profections
+        print("Calculating annual profections...")
+        profections_calculator = ProfectionsCalculator(natal_data)
+        profection_events = profections_calculator.calculate_profection_events(start_date, end_date)
+        all_events.extend(profection_events)
+        print(f"Calculated {len(profection_events)} profection events")
+        
+        # Calculate lunar phases (new moon, full moon)
+        print("Calculating lunar phases...")
+        observer = ephem.Observer()
+        observer.lat = str(location.lat)
+        observer.lon = str(location.lon)
+        observer.elevation = location.elevation
+        
+        lunar_calculator = LunarPhaseCalculator(observer, location.timezone, natal_data.get('houses'))
+        lunar_events = lunar_calculator.calculate_phases(start_date, end_date)
+        all_events.extend(lunar_events)
+        print(f"Calculated {len(lunar_events)} lunar phase events")
+        
+        # Calculate eclipses (solar and lunar)
+        print("Calculating eclipses...")
+        eclipse_calculator = EclipseCalculator(observer, location.timezone, natal_data.get('houses'))
+        eclipse_events = eclipse_calculator.calculate_eclipses(start_date, end_date)
+        all_events.extend(eclipse_events)
+        print(f"Calculated {len(eclipse_events)} eclipse events")
+        
+        # Sort events by date
+        all_events.sort(key=lambda x: x.fecha_utc)
+        
+        # Convert to response format
+        response_events = [convert_astro_event_to_response(event) for event in all_events]
+        
+        calculation_time = time.time() - start_time
+        
+        return CalculationResponse(
+            events=response_events,
+            total_events=len(response_events),
+            calculation_time=calculation_time,
+            year=request.year,
+            name=request.name
+        )
+        
+    except Exception as e:
+        print(f"Error calculating personal calendar: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error calculating personal calendar: {str(e)}"
+        )
+
+@app.get("/health", response_model=HealthResponse)
+async def health_check():
+    """Health check endpoint."""
+    return HealthResponse(
+        status="healthy",
+        timestamp=datetime.now().isoformat(),
+        version="1.0.0"
+    )
+
+@app.get("/info", response_model=InfoResponse)
+async def service_info():
+    """Service information endpoint."""
+    return InfoResponse(
+        service="Personal Astrology Calendar API",
+        version="2.0.0",
+        description="Complete microservice for calculating personal astrological events: transits, lunar phases, eclipses, progressed moon, and profections",
+        endpoints=[
+            "/calculate-personal-calendar",
+            "/health",
+            "/info"
+        ],
+        features=[
+            "Astronomical transits (V4 calculator)",
+            "Progressed moon conjunctions",
+            "Annual profections",
+            "Lunar phases (new moon, full moon)",
+            "Solar and lunar eclipses",
+            "Lunar phases with natal houses",
+            "Eclipse events with natal houses",
+            "High-precision ephemeris calculations",
+            "Spanish language descriptions"
+        ]
+    )
+
+@app.get("/")
+async def root():
+    """Root endpoint with basic service information."""
+    return {
+        "service": "Personal Astrology Calendar API",
+        "version": "2.0.0",
+        "status": "running",
+        "description": "Complete personal astrology calendar with transits, lunar phases, eclipses, and profections",
+        "endpoints": {
+            "calculate": "/calculate-personal-calendar",
+            "health": "/health",
+            "info": "/info"
+        }
+    }
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8004)

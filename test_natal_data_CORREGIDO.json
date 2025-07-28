@@ -1,0 +1,159 @@
+{
+  "points": {
+    "Sun": {
+      "sign": "Capricorn",
+      "position": "4°19'51\"",
+      "longitude": 274.33,
+      "retrograde": false
+    },
+    "Moon": {
+      "sign": "Virgo",
+      "position": "22°19'51\"",
+      "longitude": 172.33,
+      "retrograde": false
+    },
+    "Mercury": {
+      "sign": "Sagitarius",
+      "position": "15°30'12\"",
+      "longitude": 255.5,
+      "retrograde": false
+    },
+    "Venus": {
+      "sign": "Aquarius",
+      "position": "8°45'33\"",
+      "longitude": 308.76,
+      "retrograde": false
+    },
+    "Mars": {
+      "sign": "Virgo",
+      "position": "22°19'51\"",
+      "longitude": 172.33,
+      "retrograde": false
+    },
+    "Jupiter": {
+      "sign": "Taurus",
+      "position": "12°15'44\"",
+      "longitude": 42.26,
+      "retrograde": false
+    },
+    "Saturn": {
+      "sign": "Aquarius",
+      "position": "18°22'15\"",
+      "longitude": 318.37,
+      "retrograde": false
+    },
+    "Uranus": {
+      "sign": "Virgo",
+      "position": "14°55'28\"",
+      "longitude": 164.92,
+      "retrograde": false
+    },
+    "Neptune": {
+      "sign": "Scorpio",
+      "position": "17°33'41\"",
+      "longitude": 227.56,
+      "retrograde": false
+    },
+    "Pluto": {
+      "sign": "Virgo",
+      "position": "16°12'09\"",
+      "longitude": 166.2,
+      "retrograde": false
+    },
+    "Asc": {
+      "longitude": 112.43880657315697,
+      "sign": "Cancer",
+      "degrees": 22.438806573156967,
+      "position": "22°26'20\""
+    },
+    "MC": {
+      "longitude": 42.51608615627552,
+      "sign": "Taurus",
+      "degrees": 12.51608615627552,
+      "position": "12°30'58\""
+    },
+    "Dsc": {
+      "longitude": 292.43880657315697,
+      "sign": "Capricornio",
+      "degrees": 22.438806573156967,
+      "position": "22°26'20\""
+    },
+    "Ic": {
+      "longitude": 222.51608615627552,
+      "sign": "Escorpio",
+      "degrees": 12.51608615627552,
+      "position": "12°30'58\""
+    }
+  },
+  "houses": {
+    "1": {
+      "sign": "Virgo",
+      "position": "22°19'51\"",
+      "longitude": 172.33
+    },
+    "2": {
+      "sign": "Libra",
+      "position": "15°30'12\"",
+      "longitude": 195.5
+    },
+    "3": {
+      "sign": "Scorpio",
+      "position": "8°45'33\"",
+      "longitude": 218.76
+    },
+    "4": {
+      "sign": "Sagitarius",
+      "position": "5°15'44\"",
+      "longitude": 245.26
+    },
+    "5": {
+      "sign": "Capricorn",
+      "position": "8°22'15\"",
+      "longitude": 278.37
+    },
+    "6": {
+      "sign": "Aquarius",
+      "position": "14°55'28\"",
+      "longitude": 314.92
+    },
+    "7": {
+      "sign": "Pisces",
+      "position": "22°19'51\"",
+      "longitude": 352.33
+    },
+    "8": {
+      "sign": "Aries",
+      "position": "15°30'12\"",
+      "longitude": 15.5
+    },
+    "9": {
+      "sign": "Taurus",
+      "position": "8°45'33\"",
+      "longitude": 38.76
+    },
+    "10": {
+      "sign": "Gemini",
+      "position": "5°15'44\"",
+      "longitude": 65.26
+    },
+    "11": {
+      "sign": "Cancer",
+      "position": "8°22'15\"",
+      "longitude": 98.37
+    },
+    "12": {
+      "sign": "Leo",
+      "position": "14°55'28\"",
+      "longitude": 134.92
+    }
+  },
+  "location": {
+    "latitude": -34.6083696,
+    "longitude": -58.4440583,
+    "name": "Buenos Aires, Argentina",
+    "timezone": "America/Argentina/Buenos_Aires"
+  },
+  "hora_local": "1964-12-26T21:12:00",
+  "name": "Usuario",
+  "year": 2025
+}

@@ -1,0 +1,429 @@
+INFO:     Started server process [57698]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8004 (Press CTRL+C to quit)
+INFO:     127.0.0.1:54472 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54481 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54486 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54486 - "OPTIONS /calculate-personal-calendar-dynamic HTTP/1.1" 200 OK
+Calculating personal calendar for Luis Minvielle (LMV red) using dynamic natal chart calculation...
+Calculating complete natal chart with calcular_carta_natal()...
+Natal chart calculated successfully with 20 points
+Critical points included: Asc=True, MC=True
+Calculating transits for Luis Minvielle (LMV red) using V4 calculator...
+
+Calculando tránsitos con método astronómico v3.0...
+Detectados 0 cambios de dirección para Sol
+Detectados 6 cambios de dirección para Mercurio
+Detectados 2 cambios de dirección para Venus
+Detectados 1 cambios de dirección para Marte
+Detectados 2 cambios de dirección para Júpiter
+Detectados 2 cambios de dirección para Saturno
+Detectados 2 cambios de dirección para Urano
+Detectados 2 cambios de dirección para Neptuno
+Detectados 2 cambios de dirección para Plutón
+Detectados 0 cambios de dirección para Sol
+Detectados 6 cambios de dirección para Mercurio
+Detectados 2 cambios de dirección para Venus
+Detectados 1 cambios de dirección para Marte
+Detectados 2 cambios de dirección para Júpiter
+Detectados 2 cambios de dirección para Saturno
+Detectados 2 cambios de dirección para Urano
+Detectados 2 cambios de dirección para Neptuno
+Detectados 2 cambios de dirección para Plutón
+Encontrados 653 tránsitos para un planeta
+Encontrados 754 tránsitos para un planeta
+Encontrados 1255 tránsitos para un planeta
+Encontrados 1613 tránsitos para un planeta
+Encontrados 1083 tránsitos para un planeta
+Encontrados 1383 tránsitos para un planeta
+Encontrados 5016 tránsitos para un planeta
+Encontrados 3987 tránsitos para un planeta
+Encontrados 54087 tránsitos para un planeta
+
+Cálculo astronómico v4.0 completado en 12.58 segundos
+Total de eventos calculados (antes de filtro exacto/estacionario): 3591
+Total de eventos devueltos (filtrados): 192
+Calculated 192 transit events
+Calculating progressed moon conjunctions...
+Usando fecha de nacimiento de 'hora_local': 1964-12-27 21:12:00-03:00
+
+Calculando conjunciones de Luna progresada...
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de conjunción (UTC): 2025-01-01 00:00:00+00:00
+Fecha de conjunción (Local): 2024-12-31 21:00:00-03:00
+Zona horaria del usuario: America/Argentina/Buenos_Aires
+Hora local: 21:0
+Horas hasta medianoche: 3.00
+Fecha redondeada al día siguiente: 2025-01-01
+AstroSeek probablemente muestra: 2025-01-01
+Encontrada conjunción con Sol el 2025-01-01 (orbe: 1.16°)
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+
+Cálculo completado en 0.00 segundos
+Total de conjunciones encontradas: 1
+Calculated 1 progressed moon events
+Calculating annual profections...
+Signo ascendente traducido: Cancer -> Cáncer
+Calculated 1 profection events
+Calculating lunar phases...
+Calculated 24 lunar phase events
+Note: Additional calculators (eclipses) will be added in next iteration
+INFO:     127.0.0.1:54486 - "POST /calculate-personal-calendar-dynamic HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54497 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54497 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54497 - "GET /health HTTP/1.1" 200 OK
+Calculating personal calendar for Luis Minvielle (LMV red) using dynamic natal chart calculation...
+Calculating complete natal chart with calcular_carta_natal()...
+Natal chart calculated successfully with 20 points
+Critical points included: Asc=True, MC=True
+Calculating transits for Luis Minvielle (LMV red) using V4 calculator...
+
+Calculando tránsitos con método astronómico v3.0...
+Detectados 0 cambios de dirección para Sol
+Detectados 6 cambios de dirección para Mercurio
+Detectados 2 cambios de dirección para Venus
+Detectados 1 cambios de dirección para Marte
+Detectados 2 cambios de dirección para Júpiter
+Detectados 2 cambios de dirección para Saturno
+Detectados 2 cambios de dirección para Urano
+Detectados 2 cambios de dirección para Neptuno
+Detectados 2 cambios de dirección para Plutón
+Detectados 0 cambios de dirección para Sol
+Detectados 6 cambios de dirección para Mercurio
+Detectados 2 cambios de dirección para Venus
+Detectados 1 cambios de dirección para Marte
+Detectados 2 cambios de dirección para Saturno
+Detectados 2 cambios de dirección para Júpiter
+Detectados 2 cambios de dirección para Urano
+Detectados 2 cambios de dirección para Neptuno
+Detectados 2 cambios de dirección para Plutón
+Encontrados 450 tránsitos para un planeta
+Encontrados 476 tránsitos para un planeta
+Encontrados 1007 tránsitos para un planeta
+Encontrados 447 tránsitos para un planeta
+Encontrados 1255 tránsitos para un planeta
+Encontrados 915 tránsitos para un planeta
+Encontrados 3454 tránsitos para un planeta
+Encontrados 2713 tránsitos para un planeta
+Encontrados 36801 tránsitos para un planeta
+
+Cálculo astronómico v4.0 completado en 8.31 segundos
+Total de eventos calculados (antes de filtro exacto/estacionario): 2752
+Total de eventos devueltos (filtrados): 186
+Calculated 186 transit events
+Calculating progressed moon conjunctions...
+Usando fecha de nacimiento de 'hora_local': 1964-12-27 21:12:00-03:00
+
+Calculando conjunciones de Luna progresada...
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de conjunción (UTC): 2025-01-01 00:00:00+00:00
+Fecha de conjunción (Local): 2024-12-31 21:00:00-03:00
+Zona horaria del usuario: America/Argentina/Buenos_Aires
+Hora local: 21:0
+Horas hasta medianoche: 3.00
+Fecha redondeada al día siguiente: 2025-01-01
+AstroSeek probablemente muestra: 2025-01-01
+Encontrada conjunción con Sol el 2025-01-01 (orbe: 1.16°)
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+
+Cálculo completado en 0.00 segundos
+Total de conjunciones encontradas: 1
+Calculated 1 progressed moon events
+Calculating annual profections...
+Signo ascendente traducido: Cancer -> Cáncer
+Calculated 1 profection events
+Calculating lunar phases...
+Calculated 24 lunar phase events
+Note: Additional calculators (eclipses) will be added in next iteration
+INFO:     127.0.0.1:54497 - "POST /calculate-personal-calendar-dynamic HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54499 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54989 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54989 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54989 - "OPTIONS /calculate-personal-calendar-dynamic HTTP/1.1" 200 OK
+Calculating personal calendar for Luis Minvielle (LMV red) using dynamic natal chart calculation...
+Calculating complete natal chart with calcular_carta_natal()...
+Natal chart calculated successfully with 20 points
+Critical points included: Asc=True, MC=True
+Calculating transits for Luis Minvielle (LMV red) using V4 calculator...
+
+Calculando tránsitos con método astronómico v3.0...
+Detectados 0 cambios de dirección para Sol
+Detectados 6 cambios de dirección para Mercurio
+Detectados 2 cambios de dirección para Venus
+Detectados 1 cambios de dirección para Marte
+Detectados 2 cambios de dirección para Júpiter
+Detectados 2 cambios de dirección para Saturno
+Detectados 2 cambios de dirección para Urano
+Detectados 2 cambios de dirección para Neptuno
+Detectados 2 cambios de dirección para Plutón
+Detectados 0 cambios de dirección para Sol
+Detectados 6 cambios de dirección para Mercurio
+Detectados 2 cambios de dirección para Venus
+Detectados 1 cambios de dirección para Marte
+Detectados 2 cambios de dirección para Júpiter
+Detectados 2 cambios de dirección para Saturno
+Detectados 2 cambios de dirección para Urano
+Detectados 2 cambios de dirección para Neptuno
+Detectados 2 cambios de dirección para Plutón
+Encontrados 450 tránsitos para un planeta
+Encontrados 915 tránsitos para un planeta
+Encontrados 476 tránsitos para un planeta
+Encontrados 1255 tránsitos para un planeta
+Encontrados 447 tránsitos para un planeta
+Encontrados 1007 tránsitos para un planeta
+Encontrados 3454 tránsitos para un planeta
+Encontrados 2713 tránsitos para un planeta
+Encontrados 36801 tránsitos para un planeta
+
+Cálculo astronómico v4.0 completado en 8.26 segundos
+Total de eventos calculados (antes de filtro exacto/estacionario): 2752
+Total de eventos devueltos (filtrados): 186
+Calculated 186 transit events
+Calculating progressed moon conjunctions...
+Usando fecha de nacimiento de 'hora_local': 1964-12-27 21:12:00-03:00
+
+Calculando conjunciones de Luna progresada...
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de conjunción (UTC): 2025-01-01 00:00:00+00:00
+Fecha de conjunción (Local): 2024-12-31 21:00:00-03:00
+Zona horaria del usuario: America/Argentina/Buenos_Aires
+Hora local: 21:0
+Horas hasta medianoche: 3.00
+Fecha redondeada al día siguiente: 2025-01-01
+AstroSeek probablemente muestra: 2025-01-01
+Encontrada conjunción con Sol el 2025-01-01 (orbe: 1.16°)
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2025-01-01 00:00:00+00:00
+Fecha actual (UTC): 2025-01-01 00:00:00+00:00
+Fecha de nacimiento (local): 1964-12-27 21:12:00-03:00
+Fecha de nacimiento (UTC): 1964-12-28 00:12:00+00:00
+Fecha actual (local): 2026-01-01 00:00:00+00:00
+Fecha actual (UTC): 2026-01-01 00:00:00+00:00
+
+Cálculo completado en 0.00 segundos
+Total de conjunciones encontradas: 1
+Calculated 1 progressed moon events
+Calculating annual profections...
+Signo ascendente traducido: Cancer -> Cáncer
+Calculated 1 profection events
+Calculating lunar phases...
+Calculated 24 lunar phase events
+Note: Additional calculators (eclipses) will be added in next iteration
+INFO:     127.0.0.1:54989 - "POST /calculate-personal-calendar-dynamic HTTP/1.1" 200 OK
