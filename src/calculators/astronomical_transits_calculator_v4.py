@@ -1607,7 +1607,11 @@ class AstronomicalTransitsCalculatorV4:
         # Agregar estado de tránsitos por casas (una sola tarjeta)
         print("\nCalculando estado de tránsitos por casas...")
         print(f"DEBUG V4: Casas disponibles: {len(self.house_cusps)}")
-        house_states_event = self.calculate_house_transits_state(datetime.now(self.user_timezone))
+        # Usar primer día del mes actual para Luna Progresada (actualización mensual ~1°)
+        # Mientras que planetas lentos permanecen estables por meses/años
+        today = datetime.now(self.user_timezone)
+        reference_date = datetime(today.year, today.month, 1, tzinfo=self.user_timezone)
+        house_states_event = self.calculate_house_transits_state(reference_date)
         if house_states_event:
             final_events_to_return.append(house_states_event)
             print(f"DEBUG V4: Estado de tránsitos por casas agregado al calendario - Tipo: {house_states_event.tipo_evento}")
