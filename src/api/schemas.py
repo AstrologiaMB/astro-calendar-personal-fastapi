@@ -60,6 +60,7 @@ class AstroEventResponse(BaseModel):
     casa_natal: Optional[int] = None
     house_transits: Optional[List[Dict[str, Any]]] = None
     interpretacion: Optional[str] = None # Nuevo campo para la interpretación
+    metadata: Optional[Dict[str, Any]] = None
 
 class CalculationResponse(BaseModel):
     events: List[AstroEventResponse]

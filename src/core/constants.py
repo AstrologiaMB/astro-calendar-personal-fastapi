@@ -7,6 +7,8 @@ class EventType(Enum):
     """Enumeración de tipos de eventos"""
     LUNA_LLENA = "Luna Llena"
     LUNA_NUEVA = "Luna Nueva"
+    CUARTO_CRECIENTE = "Cuarto Creciente"
+    CUARTO_MENGUANTE = "Cuarto Menguante"
     ECLIPSE_SOLAR = "Eclipse Solar"
     ECLIPSE_LUNAR = "Eclipse Lunar"
     INGRESO_SIGNO = "Ingreso a Signo"

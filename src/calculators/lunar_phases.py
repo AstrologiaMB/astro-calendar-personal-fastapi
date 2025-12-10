@@ -169,6 +169,98 @@ class LunarPhaseCalculator:
 
             date = next_full + 1
 
+        # Calcular cuartos crecientes
+        date = ephem.Date(start_date)
+        while date < ephem.Date(end_date):
+            next_quarter = ephem.next_first_quarter_moon(date)
+            if next_quarter >= ephem.Date(end_date):
+                break
+
+            self.observer.date = next_quarter
+            moon = ephem.Moon()
+            moon.compute(self.observer)
+
+            dt = ephem.Date(next_quarter).datetime()
+            dt = pytz.utc.localize(dt)
+
+            # Calcular posición exacta para el signo y grado
+            jd = julian_day(dt)
+            moon_pos = calculate_planet_position(jd, swe.MOON)
+            sign_num = int(moon_pos['longitude'] / 30)
+            degree = moon_pos['longitude'] % 30
+            signo_nombre = AstronomicalConstants.SIGNS[sign_num]
+
+            # Calcular casa natal si tenemos los datos
+            casa_natal = None
+            descripcion = f"Cuarto Creciente en {signo_nombre} {AstroEvent.format_degree(degree)}"
+            if self.natal_houses:
+                try:
+                    casa_natal = determinar_casa_natal(signo_nombre, degree, self.natal_houses)
+                    descripcion = f"Cuarto Creciente en {signo_nombre} {AstroEvent.format_degree(degree)} en Casa {casa_natal}"
+                except Exception as e:
+                    print(f"Error calculando casa natal para Cuarto Creciente: {e}")
+
+            events.append(AstroEvent(
+                fecha_utc=dt,
+                tipo_evento=EventType.CUARTO_CRECIENTE,
+                descripcion=descripcion,
+                elevacion=float(moon.alt) * 180/math.pi,
+                azimut=float(moon.az) * 180/math.pi,
+                longitud1=moon_pos['longitude'],
+                signo=signo_nombre,
+                grado=degree,
+                casa_natal=casa_natal,
+                timezone_str=self.timezone_str
+            ))
+
+            date = next_quarter + 1
+
+        # Calcular cuartos menguantes
+        date = ephem.Date(start_date)
+        while date < ephem.Date(end_date):
+            next_quarter = ephem.next_last_quarter_moon(date)
+            if next_quarter >= ephem.Date(end_date):
+                break
+
+            self.observer.date = next_quarter
+            moon = ephem.Moon()
+            moon.compute(self.observer)
+
+            dt = ephem.Date(next_quarter).datetime()
+            dt = pytz.utc.localize(dt)
+
+            # Calcular posición exacta para el signo y grado
+            jd = julian_day(dt)
+            moon_pos = calculate_planet_position(jd, swe.MOON)
+            sign_num = int(moon_pos['longitude'] / 30)
+            degree = moon_pos['longitude'] % 30
+            signo_nombre = AstronomicalConstants.SIGNS[sign_num]
+
+            # Calcular casa natal si tenemos los datos
+            casa_natal = None
+            descripcion = f"Cuarto Menguante en {signo_nombre} {AstroEvent.format_degree(degree)}"
+            if self.natal_houses:
+                try:
+                    casa_natal = determinar_casa_natal(signo_nombre, degree, self.natal_houses)
+                    descripcion = f"Cuarto Menguante en {signo_nombre} {AstroEvent.format_degree(degree)} en Casa {casa_natal}"
+                except Exception as e:
+                    print(f"Error calculando casa natal para Cuarto Menguante: {e}")
+
+            events.append(AstroEvent(
+                fecha_utc=dt,
+                tipo_evento=EventType.CUARTO_MENGUANTE,
+                descripcion=descripcion,
+                elevacion=float(moon.alt) * 180/math.pi,
+                azimut=float(moon.az) * 180/math.pi,
+                longitud1=moon_pos['longitude'],
+                signo=signo_nombre,
+                grado=degree,
+                casa_natal=casa_natal,
+                timezone_str=self.timezone_str
+            ))
+
+            date = next_quarter + 1
+
         # Calcular lunas nuevas
         date = ephem.Date(start_date)
         while date < ephem.Date(end_date):

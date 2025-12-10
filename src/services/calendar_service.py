@@ -67,17 +67,19 @@ def _calcular_orbe(pos1: float, pos2: float) -> float:
 def _add_moon_phase_and_eclipse_aspects(lunar_events: List[AstroEvent], eclipse_events: List[AstroEvent], 
                                        natal_data: dict, timezone_str: str) -> List[AstroEvent]:
     """
-    Agrega eventos de aspectos para fases lunares y eclipses con planetas natales.
-    Replica la lógica del algoritmo original evitando duplicaciones.
+    Agrega eventos de aspectos para fases lunares y eclipses con planetas natales y ángulos.
+    Detecta conjunciones con orbe estricto de 4 grados.
     """
     aspect_events = []
     
-    # Mapeo de nombres de planetas
+    # Mapeo de nombres de planetas y ángulos
     PLANET_NAMES = {
         'Sun': 'Sol', 'Moon': 'Luna', 'Mercury': 'Mercurio',
         'Venus': 'Venus', 'Mars': 'Marte', 'Jupiter': 'Júpiter',
         'Saturn': 'Saturno', 'Uranus': 'Urano',
-        'Neptune': 'Neptuno', 'Pluto': 'Plutón'
+        'Neptune': 'Neptuno', 'Pluto': 'Plutón',
+        'Asc': 'Ascendente', 'MC': 'Medio Cielo',
+        'Dsc': 'Descendente', 'Ic': 'Fondo del Cielo'
     }
     
     # Crear un set de fechas de eclipses para evitar duplicaciones
@@ -89,59 +91,83 @@ def _add_moon_phase_and_eclipse_aspects(lunar_events: List[AstroEvent], eclipse_
     
     # Procesar eventos de fases lunares (solo si no hay eclipse en esa fecha/hora)
     for event in lunar_events:
-        if event.tipo_evento in [EventType.LUNA_NUEVA, EventType.LUNA_LLENA]:
+        if event.tipo_evento in [EventType.LUNA_NUEVA, EventType.LUNA_LLENA, 
+                               EventType.CUARTO_CRECIENTE, EventType.CUARTO_MENGUANTE]:
             # Verificar si hay un eclipse en la misma fecha/hora
             event_key = (event.fecha_utc.date(), event.fecha_utc.hour, event.fecha_utc.minute)
             if event_key in eclipse_dates:
                 # Si hay eclipse, saltamos la fase lunar para evitar duplicación
                 continue
                 
-            # Para luna llena usamos la posición de la luna, para luna nueva la posición del sol
             pos = event.longitud1
-            if event.tipo_evento == EventType.LUNA_NUEVA:
-                # Para luna nueva, sumar 180° a la posición de la luna para obtener la posición del sol
-                pos = (pos + 180) % 360
+            planeta1 = "Luna"
             
-            for planet_name, data in natal_data['points'].items():
-                if planet_name in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 
-                                 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']:
+            if event.tipo_evento == EventType.LUNA_NUEVA:
+                # Luna nueva: Sol y Luna conjuncion. Usamos la posición tal cual.
+                planeta1 = "Sol" 
+            elif event.tipo_evento == EventType.LUNA_LLENA:
+                # Luna llena: Luna opuesta al Sol. Usamos la posición de la Luna.
+                planeta1 = "Luna"
+            
+            # Nombre para mostrar del tipo de fase
+            tipo_display = {
+                EventType.LUNA_NUEVA: "Luna nueva",
+                EventType.LUNA_LLENA: "Luna llena",
+                EventType.CUARTO_CRECIENTE: "Cuarto Creciente",
+                EventType.CUARTO_MENGUANTE: "Cuarto Menguante"
+            }.get(event.tipo_evento, event.tipo_evento.value)
+
+            # Buscar conjunciones con planetas y ángulos
+            points_to_check = {**natal_data.get('points', {}), **natal_data.get('angles', {})} # Unir puntos y ángulos si están separados, o usar points si incluye todo
+            
+            # Nota: natal_data['points'] ya suele incluir Asc/MC/etc si viene de natal_chart.py
+            # Iteramos sobre todos los puntos disponibles
+            for point_name, data in points_to_check.items():
+                if point_name in PLANET_NAMES:
                     planet_pos = _convertir_a_grados_absolutos(
                         data['sign'],
                         _parsear_posicion(data['position'])
                     )
                     orb = _calcular_orbe(pos, planet_pos)
                     
-                    if orb <= 4.0:  # Orbe de 4°
-                        # Crear evento para la conjunción
-                        tipo = "Luna llena" if event.tipo_evento == EventType.LUNA_LLENA else "Luna nueva"
-                        planeta1 = "Luna" if event.tipo_evento == EventType.LUNA_LLENA else "Sol"
+                    if orb <= 4.0:  # Orbe estricto de 4°
                         grado = event.grado
                         conj_event = AstroEvent(
                             fecha_utc=event.fecha_utc,
                             tipo_evento=EventType.ASPECTO,
-                            descripcion=f"{tipo} en {event.signo} {AstroEvent.format_degree(grado)} en conjunción con {PLANET_NAMES[planet_name]} natal",
+                            descripcion=f"{tipo_display} en {event.signo} {AstroEvent.format_degree(grado)} en conjunción con {PLANET_NAMES[point_name]} natal",
                             planeta1=planeta1,
-                            planeta2=PLANET_NAMES[planet_name],
+                            planeta2=PLANET_NAMES[point_name],
                             longitud1=pos,
                             longitud2=planet_pos,
                             tipo_aspecto="Conjunción",
                             orbe=orb,
-                            timezone_str=timezone_str
+                            timezone_str=timezone_str,
+                            metadata={
+                                "posicion1": f"{event.signo} {AstroEvent.format_degree(grado)}",
+                                "posicion2": data['position'], 
+                                "phase_type": event.tipo_evento.value
+                            }
                         )
                         aspect_events.append(conj_event)
     
-    # Procesar eventos de eclipses (estos tienen prioridad sobre las fases lunares)
+    # Procesar eventos de eclipses
     for event in eclipse_events:
         if event.tipo_evento in [EventType.ECLIPSE_SOLAR, EventType.ECLIPSE_LUNAR]:
-            # Para eclipse lunar usamos la posición de la luna, para eclipse solar la posición del sol
             pos = event.longitud1
-            if event.tipo_evento == EventType.ECLIPSE_SOLAR:
-                # Para eclipse solar, sumar 180° a la posición de la luna para obtener la posición del sol
-                pos = (pos + 180) % 360
+            planeta1 = "Luna"
             
-            for planet_name, data in natal_data['points'].items():
-                if planet_name in ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 
-                                 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']:
+            if event.tipo_evento == EventType.ECLIPSE_SOLAR:
+                # Eclipse solar: Sol conjunción Luna. Usamos la posición directa.
+                planeta1 = "Sol" 
+            
+            tipo_display = "Eclipse lunar" if event.tipo_evento == EventType.ECLIPSE_LUNAR else "Eclipse solar"
+            
+            # Buscar conjunciones
+            points_to_check = {**natal_data.get('points', {}), **natal_data.get('angles', {})}
+
+            for point_name, data in points_to_check.items():
+                if point_name in PLANET_NAMES:
                     planet_pos = _convertir_a_grados_absolutos(
                         data['sign'],
                         _parsear_posicion(data['position'])
@@ -149,21 +175,26 @@ def _add_moon_phase_and_eclipse_aspects(lunar_events: List[AstroEvent], eclipse_
                     orb = _calcular_orbe(pos, planet_pos)
                     
                     if orb <= 4.0:  # Orbe de 4°
-                        # Crear evento para la conjunción
-                        tipo = "Eclipse lunar" if event.tipo_evento == EventType.ECLIPSE_LUNAR else "Eclipse solar"
-                        planeta1 = "Luna" if event.tipo_evento == EventType.ECLIPSE_LUNAR else "Sol"
                         grado = event.grado
+                        # Agregar insignia de FUEGO si es eclipse
+                        desc_prefix = f"🔥 {tipo_display}" 
                         conj_event = AstroEvent(
                             fecha_utc=event.fecha_utc,
                             tipo_evento=EventType.ASPECTO,
-                            descripcion=f"{tipo} en {event.signo} {AstroEvent.format_degree(grado)} en conjunción con {PLANET_NAMES[planet_name]} natal",
+                            descripcion=f"{desc_prefix} en {event.signo} {AstroEvent.format_degree(grado)} en conjunción con {PLANET_NAMES[point_name]} natal",
                             planeta1=planeta1,
-                            planeta2=PLANET_NAMES[planet_name],
+                            planeta2=PLANET_NAMES[point_name],
                             longitud1=pos,
                             longitud2=planet_pos,
                             tipo_aspecto="Conjunción",
                             orbe=orb,
-                            timezone_str=timezone_str
+                            timezone_str=timezone_str,
+                            metadata={
+                                "posicion1": f"{event.signo} {AstroEvent.format_degree(grado)}",
+                                "posicion2": data['position'],
+                                "phase_type": event.tipo_evento.value,
+                                "is_eclipse": True
+                            }
                         )
                         aspect_events.append(conj_event)
     
@@ -229,7 +260,8 @@ def convert_astro_event_to_response(event: AstroEvent) -> AstroEventResponse:
         grado=str(getattr(event, 'grado', "") or ""),
         posicion=getattr(event, 'posicion', None),
         casa_natal=getattr(event, 'casa_natal', None),
-        house_transits=house_transits_data
+        house_transits=house_transits_data,
+        metadata=getattr(event, 'metadata', None)
     )
 
 def convert_natal_data_format(request: NatalDataRequest) -> dict:
