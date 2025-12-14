@@ -80,3 +80,27 @@ class InfoResponse(BaseModel):
     description: str
     endpoints: List[str]
     features: List[str]
+
+class CycleAnalysisRequest(BaseModel):
+    birth_date: str = Field(description="Birth date in YYYY-MM-DD format")
+    target_date: str = Field(description="Date to check for active cycles (YYYY-MM-DD)")
+    location: LocationData
+
+class CyclePhaseResponse(BaseModel):
+    date: str
+    phase: str # New Moon, First Quarter, etc.
+    sign: str
+    degree: float
+    description: str
+
+class CycleFamilyResponse(BaseModel):
+    family_sign: str
+    metonic_index: int
+    seed: Optional[CyclePhaseResponse]
+    action: Optional[CyclePhaseResponse]
+    fruition: Optional[CyclePhaseResponse]
+    release: Optional[CyclePhaseResponse]
+
+class ActiveCyclesResponse(BaseModel):
+    date: str
+    active_cycles: List[CycleFamilyResponse]

@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from datetime import datetime
 from src.api.routes.calendar import router as calendar_router
+from src.api.routes.cycles import router as cycles_router
 from src.api.schemas import HealthResponse, InfoResponse
 
 app = FastAPI(
@@ -26,6 +27,7 @@ app.add_middleware(
 
 # Include the calendar router
 app.include_router(calendar_router)
+app.include_router(cycles_router)
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
