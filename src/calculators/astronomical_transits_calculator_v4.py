@@ -1365,10 +1365,21 @@ class AstronomicalTransitsCalculatorV4:
         planets = [chart.JUPITER, chart.SATURN, chart.URANUS, chart.NEPTUNE, chart.PLUTO]
         house_states = []
         
-        # 1. Calcular planetas lentos por casas (lógica existente)
+        # 1. Calcular planetas lentos por casas (lógica optimizada con signo/grado)
+        jd = self.datetime_to_jd(reference_date)
+        
         for planet_id in planets:
             try:
-                current_house = self.get_current_house_for_planet(planet_id, reference_date)
+                # Obtener datos del planeta (longitud)
+                planet_data = self._get_cached_ephemeris(planet_id, jd)
+                longitude = planet_data['lon']
+                
+                # Calcular Signo y Grado
+                sign = AstronomicalConstants.get_sign_name(longitude)
+                degree = round(longitude % 30, 1)
+                
+                # Calcular Casa
+                current_house = self.get_current_house_for_planet_position(longitude)
                 if current_house is None:
                     continue
                     
@@ -1380,14 +1391,16 @@ class AstronomicalTransitsCalculatorV4:
                     'tipo': 'planeta_lento',
                     'planeta': planet_name,
                     'simbolo': planet_symbol,
+                    'signo': sign,  # NUEVO
+                    'grado': degree, # NUEVO
                     'casa': current_house,
                     'casa_significado': house_meaning
                 })
                 
-                print(f"{planet_name} está transitando Casa {current_house} ({house_meaning})")
+                # print(f"{planet_name} en {sign} {degree}° transitando Casa {current_house}")
                 
             except Exception as e:
-                print(f"Error calculando casa para {PLANET_NAMES.get(planet_id, planet_id)}: {e}")
+                print(f"Error calculando estado para {PLANET_NAMES.get(planet_id, planet_id)}: {e}")
                 continue
         
         # 2. REFACTORIZADO: Calcular luna progresada usando el calculador especializado
@@ -1604,19 +1617,29 @@ class AstronomicalTransitsCalculatorV4:
                 # Incluir otros tipos de eventos (si los hubiera calculado esta clase)
                 final_events_to_return.append(event)
 
-        # Agregar estado de tránsitos por casas (una sola tarjeta)
-        print("\nCalculando estado de tránsitos por casas...")
+        # Agregar estado de tránsitos por casas (mensual)
+        print("\nCalculando estado de tránsitos por casas (mensual)...")
         print(f"DEBUG V4: Casas disponibles: {len(self.house_cusps)}")
-        # Usar primer día del mes actual para Luna Progresada (actualización mensual ~1°)
-        # Mientras que planetas lentos permanecen estables por meses/años
-        today = datetime.now(self.user_timezone)
-        reference_date = datetime(today.year, today.month, 1, tzinfo=self.user_timezone)
-        house_states_event = self.calculate_house_transits_state(reference_date)
-        if house_states_event:
-            final_events_to_return.append(house_states_event)
-            print(f"DEBUG V4: Estado de tránsitos por casas agregado al calendario - Tipo: {house_states_event.tipo_evento}")
-        else:
-            print("DEBUG V4: No se pudo calcular el estado de tránsitos por casas")
+        
+        # Generar un evento de estado por cada mes en el rango
+        # Usar 12:00 (mediodía) para evitar que la conversión de zona horaria 
+        # mueva la fecha al mes anterior (ej. 1 Ago 00:00 UTC -> 31 Jul 21:00 Local)
+        curr_month_date = datetime(start_date.year, start_date.month, 1, 12, 0, tzinfo=self.user_timezone)
+        end_month_date = end_date
+        
+        while curr_month_date <= end_month_date:
+            try:
+                house_states_event = self.calculate_house_transits_state(curr_month_date)
+                if house_states_event:
+                    final_events_to_return.append(house_states_event)
+            except Exception as e:
+                print(f"Error generando estado mensual para {curr_month_date}: {e}")
+            
+            # Avanzar al siguiente mes (manteniendo 12:00)
+            if curr_month_date.month == 12:
+                curr_month_date = datetime(curr_month_date.year + 1, 1, 1, 12, 0, tzinfo=self.user_timezone)
+            else:
+                curr_month_date = datetime(curr_month_date.year, curr_month_date.month + 1, 1, 12, 0, tzinfo=self.user_timezone)
 
         # Mostrar resumen
         elapsed = time.time() - start_time
