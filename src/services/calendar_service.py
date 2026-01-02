@@ -422,13 +422,28 @@ async def calculate_calendar_dynamic(request: BirthDataRequest) -> CalculationRe
         # --- INICIO: Fase 3 - Llamada al servicio de Interpretaciones ---
         print("📞 Llamando al servicio de interpretaciones para enriquecer eventos...")
         try:
-            # Preparar el payload para el servicio de interpretaciones
-            eventos_para_interpretar = [{"descripcion": evento.descripcion} for evento in response_events]
-            
-            async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    "http://localhost:8002/interpretar-eventos",
-                    json={"eventos": eventos_para_interpretar},
+                    "http://127.0.0.1:8002/interpretar-eventos",
+                    json={
+                        "eventos": [
+                            {
+                                "fecha_utc": evento.fecha_utc,
+                                "hora_utc": evento.hora_utc,
+                                "tipo_evento": evento.tipo_evento,
+                                "descripcion": evento.descripcion,
+                                "planeta1": evento.planeta1,
+                                "planeta2": evento.planeta2,
+                                "tipo_aspecto": evento.tipo_aspecto,
+                                "signo": evento.signo,
+                                "grado": evento.grado,
+                                "casa_natal": evento.casa_natal,
+                                "posicion1": evento.posicion1,
+                                "posicion2": evento.posicion2,
+                                "orbe": evento.orbe
+                            }
+                            for evento in response_events
+                        ]
+                    },
                     timeout=60.0 # Timeout de 60 segundos
                 )
                 response.raise_for_status() # Lanza una excepción si el status no es 2xx
