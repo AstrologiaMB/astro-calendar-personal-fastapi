@@ -34,6 +34,11 @@ class TransitsCalculatorFactory:
             from .transits_immanuel import ImmanuelTransitsCalculator
             # Asumimos que este también necesita la zona horaria
             return ImmanuelTransitsCalculator(natal_data, timezone_str=timezone_str)
+        elif calculator_type == "vectorized":
+            from .vectorized_transits_calculator import VectorizedTransitsCalculator
+            # Vectorized v1 es "stateless" respecto a timezone (devuelve UTC), 
+            # pero acepta natal_data estándar.
+            return VectorizedTransitsCalculator(natal_data)
         else:  # standard (incluye paralelo)
             if use_parallel:
                 from .all_transits_parallel import ParallelTransitsCalculator
