@@ -37,11 +37,11 @@ PLANET_NAMES = {
 
 # Aspects (Standard Set + Sextiles/Trines)
 ASPECTS = {
-    "Conjunción": 0,
-    "Sextil": 60,
-    "Cuadratura": 90,
-    "Trígono": 120,
-    "Oposición": 180
+    "Conjunción": [0],
+    "Sextil": [60, 300],
+    "Cuadratura": [90, 270],
+    "Trígono": [120, 240],
+    "Oposición": [180]
 }
 
 # Chart dummy class for compatibility if needed (internal mapping)
@@ -142,75 +142,76 @@ class VectorizedTransitsCalculator:
             transit_lons = curr_positions[i]
             
             for natal_pid, natal_lon in self.natal_positions.items():
-                for asp_name, asp_angle in ASPECTS.items():
-                    # Target position in zodiac
-                    target = (natal_lon + asp_angle) % 360
+                for asp_name, angles in ASPECTS.items():
+                    for asp_angle in angles:
+                        # Target position in zodiac
+                        target = (natal_lon + asp_angle) % 360
                     
-                    # Calculate diffs relative to target [-180, 180]
-                    # We want to find where diff crosses 0
-                    diffs = (transit_lons - target + 180) % 360 - 180
+                        # Calculate diffs relative to target [-180, 180]
+                        # We want to find where diff crosses 0
+                        diffs = (transit_lons - target + 180) % 360 - 180
                     
-                    # Criteria for crossing:
-                    # 1. Sign change: diff[t] * diff[t+1] <= 0
-                    # 2. No Wrap-around: abs(diff[t] - diff[t+1]) < 180
-                    # If jump is > 180, it means we crossed the 0/360 cut, not the target.
+                        # Criteria for crossing:
+                        # 1. Sign change: diff[t] * diff[t+1] <= 0
+                        # 2. No Wrap-around: abs(diff[t] - diff[t+1]) < 180
+                        # If jump is > 180, it means we crossed the 0/360 cut, not the target.
                     
-                    candidates = (diffs[:-1] * diffs[1:] <= 0) & (np.abs(diffs[:-1] - diffs[1:]) < 180)
-                    day_indices = np.where(candidates)[0]
+                        candidates = (diffs[:-1] * diffs[1:] <= 0) & (np.abs(diffs[:-1] - diffs[1:]) < 180)
+                        day_indices = np.where(candidates)[0]
                     
-                    for day_idx in day_indices:
-                        # 4. Refine Time (Bisection Search)
-                        # We know event is between day_idx and day_idx+1
-                        t0 = jds[day_idx]
-                        t1 = jds[day_idx+1]
+                        for day_idx in day_indices:
+                            # 4. Refine Time (Bisection Search)
+                            # We know event is between day_idx and day_idx+1
+                            t0 = jds[day_idx]
+                            t1 = jds[day_idx+1]
                         
-                        exact_time = self._find_precise_time(transit_pid, target, t0, t1)
+                            exact_time = self._find_precise_time(transit_pid, target, t0, t1)
                         
-                        if exact_time:
-                            dt = self._jd_to_datetime(exact_time)
+                            if exact_time:
+                                dt = self._jd_to_datetime(exact_time)
+                        
+                                # Standard boundary check
+                                if not (start_date <= dt <= end_date):
+                                    continue
                             
-                            # Standard boundary check
-                            if not (start_date <= dt <= end_date):
-                                continue
-                                
-                            # Double-check orb to filter false positives
-                            # (e.g. erratic retrograde movements at edge)
-                            final_pos, speed = self._get_pos_safe(exact_time, transit_pid)
-                            final_orb = abs(self._normalize_diff(final_pos, target))
-                            
-                            if final_orb > 0.05: # > 0.05 degree error is suspicious for exact aspect logic
-                                continue
-                            
-                            # Determine Movement Name (for RAG compatibility)
-                            if abs(speed) < 0.0001:
-                                movement_name = "Estacionario"
-                            elif speed < 0:
-                                movement_name = "Retrógrado"
-                            else:
-                                movement_name = "Directo"
+                                # Double-check orb to filter false positives
+                                # (e.g. erratic retrograde movements at edge)
+                                final_pos, speed = self._get_pos_safe(exact_time, transit_pid)
+                                final_orb = abs(self._normalize_diff(final_pos, target))
+                        
+                                if final_orb > 0.05: # > 0.05 degree error is suspicious for exact aspect logic
+                                    continue
+                        
+                                # Determine Movement Name (for RAG compatibility)
+                                if abs(speed) < 0.0001:
+                                    movement_name = "Estacionario"
+                                elif speed < 0:
+                                    movement_name = "Retrógrado"
+                                else:
+                                    movement_name = "Directo"
 
-                            # Format description exactly like V4 for RAG compatibility
-                            # "{planet} ({movement}) por tránsito esta en {aspect} a tu {natal} Natal"
-                            desc = f"{PLANET_NAMES[transit_pid]} ({movement_name.lower()}) por tránsito esta en {asp_name} a tu {PLANET_NAMES[natal_pid]} Natal"
+                                # Format description exactly like V4 for RAG compatibility
+                                # "{planet} ({movement}) por tránsito esta en {aspect} a tu {natal} Natal"
+                                desc = f"{PLANET_NAMES[transit_pid]} ({movement_name.lower()}) por tránsito esta en {asp_name} a tu {PLANET_NAMES[natal_pid]} Natal"
 
-                            # Create Event
-                            events.append(AstroEvent(
-                                fecha_utc=dt,
-                                tipo_evento=EventType.ASPECTO,
-                                descripcion=desc,
-                                planeta1=PLANET_NAMES[transit_pid],
-                                planeta2=PLANET_NAMES[natal_pid],
-                                longitud1=final_pos,
-                                longitud2=natal_lon,
-                                tipo_aspecto=asp_name,
-                                orbe=final_orb,
-                                es_aplicativo=False, # Vectorized simplifies this (exact moment)
-                                metadata={
-                                    "method": "vectorized_v1",
-                                    "movimiento": movement_name,
-                                    "posicion1": f"{self._format_deg(final_pos)}",
-                                    "posicion2": f"{self._format_deg(natal_lon)}"
-                                }
+                                # Create Event
+                                events.append(AstroEvent(
+                                    fecha_utc=dt,
+                                    tipo_evento=EventType.ASPECTO,
+                                    descripcion=desc,
+                                    planeta1=PLANET_NAMES[transit_pid],
+                                    planeta2=PLANET_NAMES[natal_pid],
+                                    longitud1=final_pos,
+                                    longitud2=natal_lon,
+                                    tipo_aspecto=asp_name,
+                                    orbe=final_orb,
+                                    es_aplicativo=False, # Vectorized simplifies this (exact moment)
+                                    metadata={
+                                        "method": "vectorized_v1",
+                                        "movimiento": movement_name,
+                                        "posicion1": f"{self._format_deg(final_pos)}",
+                                        "posicion2": f"{self._format_deg(natal_lon)}"
+                                    }
                             ))
 
         # Sort by date
