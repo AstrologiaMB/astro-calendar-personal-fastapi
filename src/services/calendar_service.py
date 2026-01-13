@@ -354,7 +354,7 @@ async def calculate_calendar_dynamic(request: BirthDataRequest) -> CalculationRe
         print(f"Calculating transits for {request.name} using V4 calculator...")
         transits_calculator = TransitsCalculatorFactory.create_calculator(
             natal_data,
-            calculator_type="astronomical_v4",
+            calculator_type="vectorized",
             use_parallel=False,
             timezone_str=location.timezone
         )
@@ -521,7 +521,7 @@ async def calculate_calendar_legacy(request: NatalDataRequest) -> CalculationRes
         print(f"Calculating transits for {request.name} using V4 calculator...")
         transits_calculator = TransitsCalculatorFactory.create_calculator(
             natal_data,
-            calculator_type="astronomical_v4",
+            calculator_type="vectorized",
             use_parallel=False,
             timezone_str=location.timezone
         )
