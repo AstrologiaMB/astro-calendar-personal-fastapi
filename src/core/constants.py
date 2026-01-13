@@ -176,7 +176,14 @@ class AstronomicalConstants:
             'angle': 180,
             'orb_factor': 1.0,
             'harmony': 'Tensión'
-        }
+        },
+        # Aspectos detallados (Crecientes/Menguantes) para referencia
+        'Sextil Creciente': { 'angle': 60, 'orb_factor': 1.0, 'harmony': 'Armónico' },
+        'Cuadratura Creciente': { 'angle': 90, 'orb_factor': 1.0, 'harmony': 'Tensión' },
+        'Trígono Creciente': { 'angle': 120, 'orb_factor': 1.0, 'harmony': 'Armónico' },
+        'Trígono Menguante': { 'angle': 240, 'orb_factor': 1.0, 'harmony': 'Armónico' },
+        'Cuadratura Menguante': { 'angle': 270, 'orb_factor': 1.0, 'harmony': 'Tensión' },
+        'Sextil Menguante': { 'angle': 300, 'orb_factor': 1.0, 'harmony': 'Armónico' }
     }
 
     @classmethod

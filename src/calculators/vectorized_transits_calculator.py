@@ -35,13 +35,29 @@ PLANET_NAMES = {
     PLUTO: "Plutón"
 }
 
-# Aspects (Standard Set + Sextiles/Trines)
-ASPECTS = {
+# Aspects (Standard Set + Sextiles/Trines with Phases)
+# Internal detection set - specific phases
+DETECTION_ASPECTS = {
     "Conjunción": 0,
-    "Sextil": 60,
-    "Cuadratura": 90,
-    "Trígono": 120,
-    "Oposición": 180
+    "Sextil Creciente": 60,
+    "Cuadratura Creciente": 90,
+    "Trígono Creciente": 120,
+    "Oposición": 180,
+    "Trígono Menguante": 240,
+    "Cuadratura Menguante": 270,
+    "Sextil Menguante": 300
+}
+
+# Normalization mapping for RAG/UI compatibility (Generic Name)
+ASPECT_NORMALIZATION = {
+    "Conjunción": "Conjunción",
+    "Sextil Creciente": "Sextil",
+    "Sextil Menguante": "Sextil",
+    "Cuadratura Creciente": "Cuadratura",
+    "Cuadratura Menguante": "Cuadratura",
+    "Trígono Creciente": "Trígono",
+    "Trígono Menguante": "Trígono",
+    "Oposición": "Oposición"
 }
 
 # Chart dummy class for compatibility if needed (internal mapping)
@@ -142,8 +158,10 @@ class VectorizedTransitsCalculator:
             transit_lons = curr_positions[i]
             
             for natal_pid, natal_lon in self.natal_positions.items():
-                for asp_name, asp_angle in ASPECTS.items():
+
+                for specific_name, asp_angle in DETECTION_ASPECTS.items():
                     # Target position in zodiac
+
                     target = (natal_lon + asp_angle) % 360
                     
                     # Calculate diffs relative to target [-180, 180]
@@ -189,9 +207,14 @@ class VectorizedTransitsCalculator:
                             else:
                                 movement_name = "Directo"
 
+
+                            # Normalize aspect name for RAG/UI compatibility
+                            generic_name = ASPECT_NORMALIZATION.get(specific_name, specific_name)
+
                             # Format description exactly like V4 for RAG compatibility
                             # "{planet} ({movement}) por tránsito esta en {aspect} a tu {natal} Natal"
-                            desc = f"{PLANET_NAMES[transit_pid]} ({movement_name.lower()}) por tránsito esta en {asp_name} a tu {PLANET_NAMES[natal_pid]} Natal"
+                            # Use GENERIC NAME in description to avoid breaking RAG
+                            desc = f"{PLANET_NAMES[transit_pid]} ({movement_name.lower()}) por tránsito esta en {generic_name} a tu {PLANET_NAMES[natal_pid]} Natal"
 
                             # Create Event
                             events.append(AstroEvent(
@@ -202,14 +225,15 @@ class VectorizedTransitsCalculator:
                                 planeta2=PLANET_NAMES[natal_pid],
                                 longitud1=final_pos,
                                 longitud2=natal_lon,
-                                tipo_aspecto=asp_name,
+                                tipo_aspecto=generic_name, # Use GENERIC Name
                                 orbe=final_orb,
                                 es_aplicativo=False, # Vectorized simplifies this (exact moment)
                                 metadata={
                                     "method": "vectorized_v1",
                                     "movimiento": movement_name,
                                     "posicion1": f"{self._format_deg(final_pos)}",
-                                    "posicion2": f"{self._format_deg(natal_lon)}"
+                                    "posicion2": f"{self._format_deg(natal_lon)}",
+                                    "fase_aspecto": specific_name # Store DETAILED phase here (e.g. Sextil Menguante)
                                 }
                             ))
 
