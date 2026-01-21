@@ -34,6 +34,8 @@ class AstroEvent:
     # Zona horaria para conversión a hora local
     timezone_str: str = "UTC"
     metadata: Dict[str, Any] = field(default_factory=dict)
+    # Nueva clasificación de importancia (high, medium, low)
+    relevance: str = "low"
 
     def __post_init__(self):
         """Inicialización posterior con validaciones y cálculos adicionales"""
