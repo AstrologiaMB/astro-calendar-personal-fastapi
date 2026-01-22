@@ -200,8 +200,65 @@ def _add_moon_phase_and_eclipse_aspects(lunar_events: List[AstroEvent], eclipse_
     
     return aspect_events
 
+def _calculate_relevance(event: AstroEvent) -> str:
+    """
+    Calcula la relevancia del evento basada en criterios astrológicos.
+    Retorna: 'high', 'medium', 'low'
+    """
+    # 1. Eventos especiales siempre son High
+    if event.tipo_evento in [EventType.LUNA_NUEVA, EventType.LUNA_LLENA, 
+                           EventType.ECLIPSE_SOLAR, EventType.ECLIPSE_LUNAR,
+                           EventType.TRANSITO_CASA_ESTADO]:
+        return 'high'
+        
+    # 2. Si no es aspecto, default a medium
+    if event.tipo_evento != EventType.ASPECTO:
+        return 'medium'
+        
+    # Clasificación de planetas
+    OUTER_PLANETS = ['Júpiter', 'Saturno', 'Urano', 'Neptuno', 'Plutón']
+    INNER_PLANETS = ['Sol', 'Luna', 'Mercurio', 'Venus', 'Marte']
+    ANGLES = ['Ascendente', 'Medio Cielo']
+    
+    # Aspectos Mayores Tensos vs Armónicos
+    HARD_ASPECTS = ['Conjunción', 'Cuadratura', 'Oposición']
+    SOFT_ASPECTS = ['Trígono', 'Sextil']
+    
+    # Lógica de Aspectos
+    p1 = event.planeta1
+    p2 = event.planeta2
+    aspect = event.tipo_aspecto
+    
+    # Caso 1: Tránsitos de Planetas Lentos (Outer) a Personales o Ángulos
+    # Estos son los eventos que definen "temporadas" y son los más importantes
+    if p1 in OUTER_PLANETS and (p2 in INNER_PLANETS or p2 in ANGLES):
+        # Conjunción, Cuadratura, Oposición de Lentos -> HIGH
+        if aspect in HARD_ASPECTS:
+            return 'high'
+        # Trígonos de Lentos -> HIGH (son muy benéficos)
+        if aspect == 'Trígono':
+            return 'high'
+        # Sextiles -> MEDIUM
+        return 'medium'
+        
+    # Caso 2: Marte (Inner pero fuerte)
+    if p1 == 'Marte' and (p2 in INNER_PLANETS or p2 in ANGLES):
+        if aspect in HARD_ASPECTS:
+            return 'medium' # Marte es rápido, nivel medio
+            
+    # Caso 3: Luna (Muy rápida)
+    if p1 == 'Luna':
+        return 'low' # "Ruido" lunar por defecto
+        
+    # Default para el resto (Inner vs Inner, etc)
+    return 'medium'
+
 def convert_astro_event_to_response(event: AstroEvent) -> AstroEventResponse:
     """Convert AstroEvent object to API response format."""
+    # Calcular relevancia si no existe
+    if not hasattr(event, 'relevance') or event.relevance == "low":
+         event.relevance = _calculate_relevance(event)
+
     # Format the date and time
     fecha_utc = event.fecha_utc.strftime("%Y-%m-%d")
     hora_utc = event.fecha_utc.strftime("%H:%M")
@@ -261,6 +318,8 @@ def convert_astro_event_to_response(event: AstroEvent) -> AstroEventResponse:
         posicion=getattr(event, 'posicion', None),
         casa_natal=getattr(event, 'casa_natal', None),
         house_transits=house_transits_data,
+        interpretacion=getattr(event, 'interpretacion', None),
+        relevance=getattr(event, 'relevance', "low"),
         metadata=getattr(event, 'metadata', None)
     )
 
