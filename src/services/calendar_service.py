@@ -25,6 +25,12 @@ from src.api.schemas import (
     AstroEventResponse,
     LocationData
 )
+from src.api.schemas_strict import (
+    AstroEventStrict, 
+    CalculationResponseStrict, 
+    HouseTransitStrict,
+    RelevanceLevel
+)
 
 # --- Helper Functions ---
 
@@ -322,6 +328,87 @@ def convert_astro_event_to_response(event: AstroEvent) -> AstroEventResponse:
         relevance=getattr(event, 'relevance', "low"),
         metadata=getattr(event, 'metadata', None)
     )
+
+def convert_astro_event_to_strict_response(event: AstroEvent) -> AstroEventStrict:
+    """Convert AstroEvent object to Strict API response format."""
+    # Ensure relevance is calculated
+    if not hasattr(event, 'relevance') or event.relevance == "low":
+         event.relevance = _calculate_relevance(event)
+
+    # Map House Transits (Metadata -> Explicit)
+    house_transits_data = None
+    descripcion = event.descripcion
+    
+    if hasattr(event, 'tipo_evento') and event.tipo_evento == EventType.TRANSITO_CASA_ESTADO:
+        if hasattr(event, 'metadata') and event.metadata and 'house_transits' in event.metadata:
+            # Validate/Convert raw metadata to Strict House Transit objects
+            raw_transits = event.metadata['house_transits']
+            house_transits_data = []
+            for t in raw_transits:
+                house_transits_data.append(HouseTransitStrict(
+                    tipo=t.get('tipo', 'unknown'),
+                    planeta=t.get('planeta'),
+                    simbolo=t.get('simbolo'),
+                    signo=t.get('signo'),
+                    grado=float(t.get('grado')) if t.get('grado') is not None else None,
+                    casa=int(t.get('casa')),
+                    casa_significado=t.get('casa_significado')
+                ))
+            descripcion = "Estado actual de tránsitos de largo plazo"
+
+    # Map explicit attributes
+    # Note: fecha_utc is kept as datetime
+    # hora_utc is formatted string
+    
+    # Orbe formatting
+    orbe_str = None
+    if hasattr(event, 'orbe') and event.orbe is not None:
+        if event.orbe < 0.01:
+            orbe_str = "0°00'00\""
+        else:
+            degrees = int(event.orbe)
+            minutes = int((event.orbe - degrees) * 60)
+            seconds = int(((event.orbe - degrees) * 60 - minutes) * 60)
+            orbe_str = f"{degrees}°{minutes:02d}'{seconds:02d}\""
+
+    return AstroEventStrict(
+        fecha_utc=event.fecha_utc, # Preserves datetime
+        hora_utc=event.fecha_utc.strftime("%H:%M"),
+        tipo_evento=event.tipo_evento.value if hasattr(event.tipo_evento, 'value') else str(event.tipo_evento),
+        descripcion=descripcion,
+        relevance=RelevanceLevel(getattr(event, 'relevance', "low")),
+        
+        # Aspects
+        planeta1=getattr(event, 'planeta1', None),
+        planeta2=getattr(event, 'planeta2', None),
+        posicion1=event.metadata.get('posicion1') if event.metadata else None,
+        posicion2=event.metadata.get('posicion2') if event.metadata else None,
+        tipo_aspecto=getattr(event, 'tipo_aspecto', None),
+        orbe=orbe_str,
+        es_aplicativo="Sí" if getattr(event, 'es_aplicativo', False) else "No",
+        harmony='Armónico' if hasattr(event, 'tipo_aspecto') and event.tipo_aspecto in ['Sextil', 'Trígono'] else ('Tensión' if hasattr(event, 'tipo_aspecto') and event.tipo_aspecto in ['Cuadratura', 'Oposición'] else 'Neutro'),
+        
+        # Location
+        elevacion=str(getattr(event, 'elevacion', "") or ""),
+        azimut=str(getattr(event, 'azimut', "") or ""),
+        signo=getattr(event, 'signo', None),
+        grado=str(getattr(event, 'grado', "") or ""),
+        posicion=getattr(event, 'posicion', None),
+        
+        # Natal
+        casa_natal=getattr(event, 'casa_natal', None),
+        
+        # Nested
+        house_transits=house_transits_data,
+        interpretacion=getattr(event, 'interpretacion', None),
+        
+        # Legacy Fallback 
+        visibilidad_local=getattr(event, 'visibilidad_local', None),
+        
+        # Lunar
+        phase_type=event.metadata.get('phase_type') if event.metadata else None
+    )
+
 
 def convert_natal_data_format(request: NatalDataRequest) -> dict:
     """Convert the request format to the internal natal data format."""
@@ -654,3 +741,138 @@ async def calculate_calendar_legacy(request: NatalDataRequest) -> CalculationRes
             status_code=500,
             detail=f"Error calculating personal calendar: {str(e)}"
         )
+
+async def calculate_calendar_dynamic_strict(request: BirthDataRequest) -> CalculationResponseStrict:
+    """
+    Strict version of Calculate Calendar.
+    Returns strongly typed data with datetime objects and explicit nested structures.
+    """
+    start_time = time.time()
+    
+    try:
+        print(f"STRICT: Calculating personal calendar for {request.name}...")
+        
+        # 1. Setup Location
+        location = Location(
+            lat=request.location.latitude,
+            lon=request.location.longitude,
+            name=request.location.name,
+            timezone=request.location.timezone,
+            elevation=25
+        )
+        try:
+            _ = ZoneInfo(location.timezone)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid timezone: {str(e)}")
+        
+        # 2. Calculate Natal Chart
+        birth_data = {
+            "hora_local": f"{request.birth_date}T{request.birth_time}:00",
+            "lat": request.location.latitude,
+            "lon": request.location.longitude,
+            "zona_horaria": request.location.timezone,
+            "lugar": request.location.name
+        }
+        natal_data = calcular_carta_natal(birth_data)
+        natal_data['name'] = request.name
+        
+        # 3. Calculate Events
+        start_date = datetime(request.year, 1, 1, tzinfo=pytz.UTC)
+        end_date = datetime(request.year + 1, 1, 1, tzinfo=pytz.UTC)
+        all_events = []
+        
+        # 3a. Transits
+        transits_calculator = TransitsCalculatorFactory.create_calculator(
+            natal_data, calculator_type="vectorized", use_parallel=False, timezone_str=location.timezone
+        )
+        all_events.extend(transits_calculator.calculate_all(start_date, end_date))
+        
+        # 3b. Progressed Moon
+        progressed_calculator = TransitsCalculatorFactory.create_calculator(
+            natal_data, calculator_type="progressed_moon"
+        )
+        all_events.extend(progressed_calculator.calculate_all(start_date, end_date))
+        
+        # 3c. Profections
+        profections_calculator = ProfectionsCalculator(natal_data)
+        all_events.extend(profections_calculator.calculate_profection_events(start_date, end_date))
+        
+        # 3d. Lunar Phases & Eclipses
+        observer = ephem.Observer()
+        observer.lat = str(location.lat)
+        observer.lon = str(location.lon)
+        observer.elevation = location.elevation
+        
+        lunar_calculator = LunarPhaseCalculator(observer, location.timezone, natal_data.get('houses'))
+        lunar_events = lunar_calculator.calculate_phases(start_date, end_date)
+        all_events.extend(lunar_events)
+        
+        eclipse_calculator = EclipseCalculator(observer, location.timezone, natal_data.get('houses'))
+        eclipse_events = eclipse_calculator.calculate_eclipses(start_date, end_date)
+        all_events.extend(eclipse_events)
+        
+        # 3e. Aspects for phases
+        aspect_events = _add_moon_phase_and_eclipse_aspects(
+            lunar_events, eclipse_events, natal_data, location.timezone
+        )
+        all_events.extend(aspect_events)
+        
+        # Sort
+        all_events.sort(key=lambda x: x.fecha_utc)
+        
+        # 4. CONVERT TO STRICT RESPONSE
+        response_events = [convert_astro_event_to_strict_response(event) for event in all_events]
+
+        # 5. Interpretations (Enrichment)
+        # Note: We must handle datetime serialization manually for the external service
+        print("📞 STRICT: Calling interpretation service...")
+        try:
+            # Serialize events to JSON-compatible dicts (handling datetime)
+            events_payload = []
+            for evento in response_events:
+                payload = evento.model_dump(exclude_none=True)
+                # Convert datetime to ISO format
+                if isinstance(payload.get('fecha_utc'), datetime):
+                    payload['fecha_utc'] = payload['fecha_utc'].isoformat()
+                events_payload.append(payload)
+
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "http://127.0.0.1:8002/interpretar-eventos",
+                    json={"eventos": events_payload},
+                    timeout=60.0
+                )
+                response.raise_for_status()
+                datos_interpretados = response.json()
+                mapa_interpretaciones = {
+                    item['descripcion']: item['interpretacion'] 
+                    for item in datos_interpretados.get('eventos_interpretados', [])
+                }
+                
+                for evento in response_events:
+                    if evento.descripcion in mapa_interpretaciones:
+                        evento.interpretacion = mapa_interpretaciones[evento.descripcion]
+                print("✅ STRICT: Events enriched.")
+
+        except Exception as e:
+            print(f"⚠️ STRICT: Interpretation error: {e}")
+
+        calculation_time = time.time() - start_time
+        
+        # Return Strict Response
+        return CalculationResponseStrict(
+            events=response_events,
+            total_events=len(response_events),
+            calculation_time=calculation_time,
+            year=request.year,
+            name=request.name,
+            transits_count=len([e for e in response_events if 'Transito' in e.tipo_evento or 'Tránsito' in e.tipo_evento]),
+            progressed_moon_count=len([e for e in response_events if e.tipo_evento == 'Luna Progresada']),
+            profections_count=len([e for e in response_events if e.tipo_evento == 'Profección Anual'])
+        )
+
+    except Exception as e:
+        print(f"STRICT Error: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Strict Calc Error: {str(e)}")
+
