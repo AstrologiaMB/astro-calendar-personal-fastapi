@@ -32,3 +32,4 @@ venv/
 *.venv/
 env/
 ENV/
+.env
