@@ -35,7 +35,8 @@ async def health_check():
     return HealthResponse(
         status="healthy",
         timestamp=datetime.now().isoformat(),
-        version="2.0.0"
+        version="2.0.0",
+        commit_sha=os.getenv("COMMIT_SHA")
     )
 
 @app.get("/info", response_model=InfoResponse)

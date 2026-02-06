@@ -1,6 +1,9 @@
 # Dockerfile optimizado para Railway - API Calendario Personal
 FROM python:3.11-slim
 
+ARG COMMIT_SHA
+ENV COMMIT_SHA=$COMMIT_SHA
+
 WORKDIR /app
 
 # Install system dependencies and build tools for compiling Python packages

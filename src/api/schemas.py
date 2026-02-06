@@ -74,6 +74,7 @@ class HealthResponse(BaseModel):
     status: str
     timestamp: str
     version: str
+    commit_sha: Optional[str] = None
 
 class InfoResponse(BaseModel):
     service: str
