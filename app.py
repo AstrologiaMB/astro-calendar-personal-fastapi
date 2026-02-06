@@ -5,6 +5,7 @@ Transforms the interactive astro_calendar_personal_v3 into a REST API service.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+import os
 from datetime import datetime
 from src.api.routes.calendar import router as calendar_router
 from src.api.routes.cycles import router as cycles_router
