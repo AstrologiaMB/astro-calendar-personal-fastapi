@@ -1,3 +1,4 @@
+import os
 import time
 import traceback
 import ephem
@@ -7,6 +8,8 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from zoneinfo import ZoneInfo
 from fastapi import HTTPException
+
+INTERPRETATION_SERVICE_URL = os.getenv("INTERPRETATION_SERVICE_URL", "http://127.0.0.1:8002")
 
 # Import internal modules (paths remain relative to root as python path includes root)
 from src.core.location import Location
@@ -569,7 +572,7 @@ async def calculate_calendar_dynamic(request: BirthDataRequest) -> CalculationRe
         print("📞 Llamando al servicio de interpretaciones para enriquecer eventos...")
         try:
                 response = await client.post(
-                    "http://127.0.0.1:8002/interpretar-eventos",
+                    f"{INTERPRETATION_SERVICE_URL}/interpretar-eventos",
                     json={
                         "eventos": [
                             {
@@ -838,7 +841,7 @@ async def calculate_calendar_dynamic_strict(request: BirthDataRequest) -> Calcul
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    "http://127.0.0.1:8002/interpretar-eventos",
+                    f"{INTERPRETATION_SERVICE_URL}/interpretar-eventos",
                     json={"eventos": events_payload},
                     timeout=60.0
                 )
