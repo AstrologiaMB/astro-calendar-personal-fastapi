@@ -564,6 +564,29 @@ async def calculate_calendar_dynamic(request: BirthDataRequest) -> CalculationRe
         
         # Sort events by date
         all_events.sort(key=lambda x: x.fecha_utc)
+
+        # --- NEW: Calculate House Transits (Astral Climate) ---
+        print("🪐 Calculating House Transits (Astral Climate)...")
+        try:
+            # We use V4 just for the house states calculation (optimized)
+            from src.calculators.astronomical_transits_calculator_v4 import AstronomicalTransitsCalculatorV4
+            v4_calc = AstronomicalTransitsCalculatorV4(natal_data)
+            
+            # Generate one state event per month for the requested year
+            added_count = 0
+            for m in range(1, 13):
+                month_date = datetime(request.year, m, 1, 12, 0, tzinfo=pytz.UTC)
+                state_event = v4_calc.calculate_house_transits_state(month_date)
+                if state_event:
+                    all_events.append(state_event)
+                    added_count += 1
+            
+            # Re-sort to include new events
+            all_events.sort(key=lambda x: x.fecha_utc)
+            print(f"✅ Added {added_count} Astral Climate events to all_events. Total now: {len(all_events)}")
+        except Exception as e:
+            print(f"⚠️ Error calculating Astral Climate: {e}")
+        # --- END: House Transits ---
         
         # Convert to response format
         response_events = [convert_astro_event_to_response(event) for event in all_events]
@@ -723,6 +746,22 @@ async def calculate_calendar_legacy(request: NatalDataRequest) -> CalculationRes
         
         # Sort events by date
         all_events.sort(key=lambda x: x.fecha_utc)
+
+        # --- NEW: Calculate House Transits (Astral Climate) ---
+        print("🪐 Calculating House Transits (Astral Climate)...")
+        try:
+            from src.calculators.astronomical_transits_calculator_v4 import AstronomicalTransitsCalculatorV4
+            v4_calc = AstronomicalTransitsCalculatorV4(natal_data)
+            for m in range(1, 13):
+                month_date = datetime(request.year, m, 1, 12, 0, tzinfo=pytz.UTC)
+                state_event = v4_calc.calculate_house_transits_state(month_date)
+                if state_event:
+                    all_events.append(state_event)
+            all_events.sort(key=lambda x: x.fecha_utc)
+            print(f"✅ Added Astral Climate events (Legacy).")
+        except Exception as e:
+            print(f"⚠️ Error calculating Astral Climate (Legacy): {e}")
+        # --- END: House Transits ---
         
         # Convert to response format
         response_events = [convert_astro_event_to_response(event) for event in all_events]
@@ -822,6 +861,22 @@ async def calculate_calendar_dynamic_strict(request: BirthDataRequest) -> Calcul
         
         # Sort
         all_events.sort(key=lambda x: x.fecha_utc)
+
+        # --- NEW: Calculate House Transits (Astral Climate) ---
+        print("🪐 STRICT: Calculating House Transits (Astral Climate)...")
+        try:
+            from src.calculators.astronomical_transits_calculator_v4 import AstronomicalTransitsCalculatorV4
+            v4_calc = AstronomicalTransitsCalculatorV4(natal_data)
+            for m in range(1, 13):
+                month_date = datetime(request.year, m, 1, 12, 0, tzinfo=pytz.UTC)
+                state_event = v4_calc.calculate_house_transits_state(month_date)
+                if state_event:
+                    all_events.append(state_event)
+            all_events.sort(key=lambda x: x.fecha_utc)
+            print("✅ STRICT: Added Astral Climate events.")
+        except Exception as e:
+            print(f"⚠️ STRICT: Error calculating Astral Climate: {e}")
+        # --- END: House Transits ---
         
         # 4. CONVERT TO STRICT RESPONSE
         response_events = [convert_astro_event_to_strict_response(event) for event in all_events]
